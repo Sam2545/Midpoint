@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="hellofx.LocationController">
+   <top>
+      <VBox alignment="CENTER" spacing="15.0" style="-fx-background-color: #2E86AB; -fx-padding: 30;">
+         <Label text="Location Finder" style="-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;" />
+         <Label text="Enter two locations to get started" style="-fx-text-fill: white; -fx-font-size: 14px;" />
+      </VBox>
+   </top>
+   
+   <center>
+      <VBox alignment="CENTER" spacing="25.0" style="-fx-background-color: #FFFFFF; -fx-padding: 40;">
+         <VBox spacing="20.0" prefWidth="400.0">
+            <VBox spacing="10.0">
+               <Label text="Starting Location:" style="-fx-text-fill: #2E86AB; -fx-font-size: 16px; -fx-font-weight: bold;" />
+               <TextField fx:id="startLocationField" promptText="Enter starting location (e.g., New York, NY)" style="-fx-background-color: #F8F9FA; -fx-border-color: #2E86AB; -fx-border-width: 2px; -fx-padding: 12px; -fx-font-size: 14px;" />
+            </VBox>
+            
+            <VBox spacing="10.0">
+               <Label text="Destination:" style="-fx-text-fill: #2E86AB; -fx-font-size: 16px; -fx-font-weight: bold;" />
+               <TextField fx:id="endLocationField" promptText="Enter destination (e.g., Los Angeles, CA)" style="-fx-background-color: #F8F9FA; -fx-border-color: #2E86AB; -fx-border-width: 2px; -fx-padding: 12px; -fx-font-size: 14px;" />
+            </VBox>
+         </VBox>
+         
+         <HBox spacing="20.0" alignment="CENTER">
+            <Button fx:id="findRouteButton" text="Find Route" style="-fx-background-color: #2E86AB; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 12px 30px; -fx-background-radius: 5px;" />
+            <Button fx:id="clearButton" text="Clear" style="-fx-background-color: #FF6B35; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 12px 30px; -fx-background-radius: 5px;" />
+         </HBox>
+         
+         <VBox spacing="10.0" alignment="CENTER">
+            <Label fx:id="statusLabel" text="" style="-fx-text-fill: #2E86AB; -fx-font-size: 14px;" />
+         </VBox>
+      </VBox>
+   </center>
+   
+   <bottom>
+      <HBox alignment="CENTER" spacing="20.0" style="-fx-background-color: #FF6B35; -fx-padding: 20;">
+         <Button fx:id="backToLoginButton" text="← Back to Login" style="-fx-background-color: #FFFFFF; -fx-text-fill: #FF6B35; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 8px 20px; -fx-background-radius: 5px;" />
+         <Label text="© 2024 Location Finder App" style="-fx-text-fill: white; -fx-font-size: 12px;" />
+      </HBox>
+   </bottom>
+</BorderPane>

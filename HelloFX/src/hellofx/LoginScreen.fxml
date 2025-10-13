@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="hellofx.LoginController">
+   <top>
+      <VBox alignment="CENTER" spacing="20.0" style="-fx-background-color: #FF6B35; -fx-padding: 30;">
+         <Label text="Welcome Back!" style="-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;" />
+         <Label text="Please sign in to continue" style="-fx-text-fill: white; -fx-font-size: 14px;" />
+      </VBox>
+   </top>
+   
+   <center>
+      <VBox alignment="CENTER" spacing="20.0" style="-fx-background-color: #FFFFFF; -fx-padding: 40;">
+         <VBox spacing="15.0">
+            <Label text="Username:" style="-fx-text-fill: #2E86AB; -fx-font-size: 16px; -fx-font-weight: bold;" />
+            <TextField fx:id="usernameField" promptText="Enter your username" style="-fx-background-color: #F8F9FA; -fx-border-color: #2E86AB; -fx-border-width: 2px; -fx-padding: 10px; -fx-font-size: 14px;" />
+            
+            <Label text="Password:" style="-fx-text-fill: #2E86AB; -fx-font-size: 16px; -fx-font-weight: bold;" />
+            <PasswordField fx:id="passwordField" promptText="Enter your password" style="-fx-background-color: #F8F9FA; -fx-border-color: #2E86AB; -fx-border-width: 2px; -fx-padding: 10px; -fx-font-size: 14px;" />
+         </VBox>
+         
+         <HBox spacing="20.0" alignment="CENTER">
+            <Button fx:id="loginButton" text="Login" style="-fx-background-color: #2E86AB; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 12px 30px; -fx-background-radius: 5px;" />
+            <Button fx:id="cancelButton" text="Cancel" style="-fx-background-color: #FF6B35; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 12px 30px; -fx-background-radius: 5px;" />
+         </HBox>
+         
+         <Hyperlink fx:id="forgotPasswordLink" text="Forgot Password?" style="-fx-text-fill: #2E86AB; -fx-font-size: 12px;" />
+      </VBox>
+   </center>
+   
+   <bottom>
+      <HBox alignment="CENTER" style="-fx-background-color: #2E86AB; -fx-padding: 20;">
+         <Label text="Don't have an account? " style="-fx-text-fill: white; -fx-font-size: 14px;" />
+         <Hyperlink fx:id="signUpLink" text="Sign Up" style="-fx-text-fill: #FFE66D; -fx-font-size: 14px; -fx-font-weight: bold;" />
+      </HBox>
+   </bottom>
+</BorderPane>
