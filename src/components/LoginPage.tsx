@@ -1,18 +1,27 @@
-import { useState } from "react";
-import { Camera, User, Phone, MapPinned } from "lucide-react";
+import React, { useState } from "react";
+import { Camera, User, Phone, MapPinned, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { AuthService } from "../lib/auth";
 
 interface LoginPageProps {
   onComplete: () => void;
 }
 
 export function LoginPage({ onComplete }: LoginPageProps) {
+  const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [profileImage, setProfileImage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,12 +34,77 @@ export function LoginPage({ onComplete }: LoginPageProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onComplete();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      if (isLogin) {
+        // Login logic
+        if (!email || !password) {
+          setError("Please fill in all required fields");
+          return;
+        }
+
+        const { data, error } = await AuthService.signIn({ email, password });
+        
+        if (error) {
+          setError(error.message || "Login failed. Please check your credentials.");
+          return;
+        }
+
+        if (data?.user) {
+          console.log("Login successful:", data.user);
+          onComplete();
+        }
+      } else {
+        // Registration logic
+        if (!name || !lastName || !email || !password) {
+          setError("Please fill in all required fields");
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setError("Passwords do not match");
+          return;
+        }
+
+        if (password.length < 6) {
+          setError("Password must be at least 6 characters long");
+          return;
+        }
+
+        const { data, error } = await AuthService.signUp({
+          first_name: name,
+          last_name: lastName,
+          email,
+          phone,
+          password,
+        });
+
+        if (error) {
+          setError(error.message || "Registration failed. Please try again.");
+          return;
+        }
+
+        if (data?.user) {
+          console.log("Registration successful:", data.user);
+          setError("Registration successful! Please check your email to verify your account.");
+          setIsLogin(true); // Switch to login mode
+        }
+      }
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+      console.error("Auth error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const isFormValid = name.trim() !== "" && phone.trim() !== "";
+  const isFormValid = isLogin 
+    ? email.trim() !== "" && password.trim() !== ""
+    : name.trim() !== "" && lastName.trim() !== "" && email.trim() !== "" && password.trim() !== "" && confirmPassword.trim() !== "";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center p-4">
@@ -44,7 +118,7 @@ export function LoginPage({ onComplete }: LoginPageProps) {
             <div>
               <h1 className="text-2xl">Welcome to Mid</h1>
               <p className="text-primary-foreground/80 text-sm">
-                Create your profile to get started
+                {isLogin ? "Sign in to your account" : "Create your profile to get started"}
               </p>
             </div>
           </div>
@@ -52,87 +126,228 @@ export function LoginPage({ onComplete }: LoginPageProps) {
 
         {/* Content */}
         <div className="p-6 -mt-6">
+          {/* Toggle between Login and Register */}
+          <div className="flex mb-6 bg-muted rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                isLogin 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                !isLogin 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Profile Picture */}
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
-                  <AvatarImage src={profileImage} alt={name} />
-                  <AvatarFallback className="bg-muted">
-                    <User className="w-10 h-10 text-muted-foreground" />
-                  </AvatarFallback>
-                </Avatar>
-                <label
-                  htmlFor="profile-upload"
-                  className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground p-2.5 rounded-full shadow-lg cursor-pointer hover:bg-primary/90 transition-colors"
-                >
-                  <Camera className="w-4 h-4" />
-                  <input
-                    id="profile-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </label>
+            {/* Profile Picture - Only show for registration */}
+            {!isLogin && (
+              <div className="flex flex-col items-center">
+                <div className="relative">
+                  <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
+                    <AvatarImage src={profileImage} alt={name} />
+                    <AvatarFallback className="bg-muted">
+                      <User className="w-10 h-10 text-muted-foreground" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <label
+                    htmlFor="profile-upload"
+                    className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground p-2.5 rounded-full shadow-lg cursor-pointer hover:bg-primary/90 transition-colors"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <input
+                      id="profile-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Upload profile picture
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground mt-3">
-                Upload profile picture
-              </p>
-            </div>
+            )}
 
-            {/* Name Input */}
+            {/* Email Input */}
             <div className="space-y-2">
               <Label
-                htmlFor="name"
+                htmlFor="email"
                 className="flex items-center gap-2 text-secondary"
               >
-                <User className="w-4 h-4" />
-                Full Name
+                <Mail className="w-4 h-4" />
+                Email Address
               </Label>
               <Input
-                id="name"
-                type="text"
-                placeholder="Enter your full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="bg-input-background border-secondary/30 focus:border-secondary"
-                autoComplete="name"
-                inputMode="text"
+                autoComplete="email"
+                inputMode="email"
                 required
               />
             </div>
 
-            {/* Phone Number Input */}
+            {/* Password Input */}
             <div className="space-y-2">
               <Label
-                htmlFor="phone"
+                htmlFor="password"
                 className="flex items-center gap-2 text-secondary"
               >
-                <Phone className="w-4 h-4" />
-                Phone Number
+                <Lock className="w-4 h-4" />
+                Password
               </Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="(555) 123-4567"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-input-background border-secondary/30 focus:border-secondary"
-                inputMode="tel"
-                autoComplete="tel"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-input-background border-secondary/30 focus:border-secondary pr-10"
+                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
+
+            {/* Registration-only fields */}
+            {!isLogin && (
+              <>
+                {/* First Name Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="name"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <User className="w-4 h-4" />
+                    First Name
+                  </Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Enter your first name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    autoComplete="given-name"
+                    inputMode="text"
+                    required
+                  />
+                </div>
+
+                {/* Last Name Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="lastName"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <User className="w-4 h-4" />
+                    Last Name
+                  </Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Enter your last name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    autoComplete="family-name"
+                    inputMode="text"
+                    required
+                  />
+                </div>
+
+                {/* Phone Number Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="phone"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Phone Number (Optional)
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    inputMode="tel"
+                    autoComplete="tel"
+                  />
+                </div>
+
+                {/* Confirm Password Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="confirmPassword"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Confirm Password
+                  </Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </>
+            )}
 
             {/* Submit Button */}
             <Button
               type="submit"
               className="w-full h-12 mt-8"
               size="lg"
-              disabled={!isFormValid}
+              disabled={!isFormValid || isLoading}
             >
-              Continue to Mid
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  {isLogin ? "Signing In..." : "Creating Account..."}
+                </div>
+              ) : (
+                isLogin ? "Sign In" : "Create Account"
+              )}
             </Button>
           </form>
         </div>
