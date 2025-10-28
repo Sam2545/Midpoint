@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback } from "../components/ui/Avatar";
 import { Separator } from "../components/ui/Separator";
 import { FriendCarousel } from "../components/FriendCarousel";
 import { ActivitySelector } from "../components/ActivitySelector";
+import { LocationInputWithAutocomplete } from "../components/LocationInputWithAutocomplete";
 import { Friend, LocationEntry } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
 
@@ -194,13 +195,13 @@ export default function LocationsPage() {
                               <Text style={styles.locationLabel}>
                                 {loc.personName}
                               </Text>
-                              <Input
+                              <LocationInputWithAutocomplete
                                 placeholder="Enter location or address"
                                 value={loc.location}
                                 onChangeText={(value) =>
                                   updateLocation(loc.id, value)
                                 }
-                                className="bg-input-background border-secondary/30 focus:border-secondary"
+                                style={styles.locationInput}
                                 autoComplete="street-address"
                               />
                             </View>
@@ -385,6 +386,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#64748b",
+  },
+  locationInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: "rgba(37, 99, 235, 0.3)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#f8fafc",
+    fontSize: 16,
   },
   removeButton: {
     padding: 8,
