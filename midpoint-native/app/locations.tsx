@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback } from "../components/ui/Avatar";
 import { Separator } from "../components/ui/Separator";
 import { FriendCarousel } from "../components/FriendCarousel";
 import { ActivitySelector } from "../components/ActivitySelector";
+import { LocationInputWithAutocomplete } from "../components/LocationInputWithAutocomplete";
 import { Friend, LocationEntry } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
 
@@ -28,6 +29,9 @@ export default function LocationsPage() {
   const [locations, setLocations] = useState<LocationEntry[]>([
     { id: "me", personName: "Me", location: "", isMe: true },
   ]);
+  const [coordinates, setCoordinates] = useState<{
+    [key: string]: { lat: number; lng: number };
+  }>({});
 
   // Update locations when friends change
   useEffect(() => {
@@ -53,6 +57,31 @@ export default function LocationsPage() {
     );
   };
 
+  const handlePlaceSelect = async (id: string, place: any) => {
+    try {
+      // Get coordinates from place details
+      const response = await fetch(
+        `http://localhost:8080/api/places/details?placeId=${place.place_id}`
+      );
+      if (response.ok) {
+        const placeDetails = await response.json();
+        const coords = {
+          lat: placeDetails.geometry.location.lat,
+          lng: placeDetails.geometry.location.lng,
+        };
+
+        setCoordinates((prev) => ({
+          ...prev,
+          [id]: coords,
+        }));
+
+        console.log(`📍 Coordinates for ${id}:`, coords);
+      }
+    } catch (error) {
+      console.error("Error getting place coordinates:", error);
+    }
+  };
+
   const addMoreLocation = () => {
     setLocations([
       ...locations,
@@ -70,35 +99,79 @@ export default function LocationsPage() {
     }
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     console.log("Button pressed!");
     console.log("isValid:", isValid);
     console.log("locations:", locations);
+    console.log("coordinates:", coordinates);
 
     try {
       successHaptic();
-      console.log("Navigating to map with activity:", activity);
-      console.log("Locations data:", locations);
 
-      const locationData = locations.map((loc) => ({
-        id: loc.id,
-        personName: loc.personName,
-        location: loc.location,
-      }));
+      // Get coordinates for all locations
+      const coordsArray = locations
+        .filter((loc) => coordinates[loc.id])
+        .map((loc) => coordinates[loc.id]);
 
-      console.log("Location data to send:", locationData);
+      if (coordsArray.length < 2) {
+        alert("Please select valid locations for at least 2 people");
+        return;
+      }
 
-      router.push({
-        pathname: "/map",
-        params: {
-          activity: activity,
-          locations: JSON.stringify(locationData),
-        },
-      });
+      // Convert activity to filters
+      const getActivityFilters = (activityType: string): string[] => {
+        switch (activityType) {
+          case "restaurants":
+            return ["restaurant"];
+          case "cafes":
+            return ["cafe"];
+          case "shopping":
+            return ["shopping_mall", "store"];
+          case "entertainment":
+            return ["movie_theater", "amusement_park", "zoo"];
+          default:
+            return ["restaurant", "cafe"];
+        }
+      };
+
+      // Call backend API
+      const request = {
+        coords: coordsArray,
+        filters: getActivityFilters(activity),
+      };
+
+      console.log("🎯 Calling midpoint API:", request);
+
+      const response = await fetch(
+        "http://localhost:8080/api/places/midpoint",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(request),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("✅ Midpoint data received:", data);
+
+        // Navigate to map page with the data
+        router.push({
+          pathname: "/map",
+          params: {
+            activity: activity,
+            midpointData: JSON.stringify(data),
+          },
+        });
+      } else {
+        console.error("❌ API call failed:", response.status);
+        alert("Failed to find midpoint. Please try again.");
+      }
     } catch (error) {
       console.error("Navigation error:", error);
-      // Fallback navigation
-      router.push("/map");
+      alert("Error finding midpoint. Please check your connection.");
     }
   };
 
@@ -194,13 +267,16 @@ export default function LocationsPage() {
                               <Text style={styles.locationLabel}>
                                 {loc.personName}
                               </Text>
-                              <Input
+                              <LocationInputWithAutocomplete
                                 placeholder="Enter location or address"
                                 value={loc.location}
                                 onChangeText={(value) =>
                                   updateLocation(loc.id, value)
                                 }
-                                className="bg-input-background border-secondary/30 focus:border-secondary"
+                                onSelectPlace={(place) =>
+                                  handlePlaceSelect(loc.id, place)
+                                }
+                                style={styles.locationInput}
                                 autoComplete="street-address"
                               />
                             </View>
@@ -385,6 +461,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#64748b",
+  },
+  locationInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: "rgba(37, 99, 235, 0.3)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#f8fafc",
+    fontSize: 16,
   },
   removeButton: {
     padding: 8,

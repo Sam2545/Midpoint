@@ -15,7 +15,7 @@ export interface LocationEntry {
 export interface Vote {
   userId: string;
   userName: string;
-  status: 'confirmed' | 'denied' | 'suggested';
+  status: "confirmed" | "denied" | "suggested";
   suggestion?: string;
   timestamp: string;
 }
@@ -31,7 +31,7 @@ export interface Place {
   lng: number;
 }
 
-export type Screen = 'login' | 'locations' | 'map' | 'poll';
+export type Screen = "login" | "locations" | "map" | "poll";
 
 export interface LoginPageProps {
   onComplete: () => void;
@@ -39,7 +39,11 @@ export interface LoginPageProps {
 
 export interface LocationsPageProps {
   onBack: () => void;
-  onSearch: (locations: LocationEntry[], activity: string, friends: Friend[]) => void;
+  onSearch: (
+    locations: LocationEntry[],
+    activity: string,
+    friends: Friend[]
+  ) => void;
 }
 
 export interface MidpointMapPageProps {
