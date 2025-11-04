@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { UserPlus } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { selectionHaptic } from '../utils/haptics';
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { UserPlus } from "lucide-react";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { selectionHaptic } from "../utils/haptics";
 
 interface Friend {
   id: string;
@@ -16,18 +19,47 @@ interface FriendCarouselProps {
 
 export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
   // Mock friends list - in real app, this would come from contacts/API
-  const [allFriends] = useState<Friend[]>([
-    { id: '1', name: 'Sarah', phone: '(555) 234-5678', avatar: '' },
-    { id: '2', name: 'Mike', phone: '(555) 345-6789', avatar: '' },
-    { id: '3', name: 'Emma', phone: '(555) 456-7890', avatar: '' },
-    { id: '4', name: 'Alex', phone: '(555) 567-8901', avatar: '' },
-    { id: '5', name: 'John', phone: '(555) 678-9012', avatar: '' },
-    { id: '6', name: 'Lisa', phone: '(555) 789-0123', avatar: '' },
-    { id: '7', name: 'Tom', phone: '(555) 890-1234', avatar: '' },
-    { id: '8', name: 'Amy', phone: '(555) 901-2345', avatar: '' },
+  const [allFriends, setAllFriends] = useState<Friend[]>([
+    { id: "1", name: "Sarah", phone: "(555) 234-5678", avatar: "" },
+    { id: "2", name: "Mike", phone: "(555) 345-6789", avatar: "" },
+    { id: "3", name: "Emma", phone: "(555) 456-7890", avatar: "" },
   ]);
 
-  const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
+  const [selectedFriends, setSelectedFriends] = useState<Set<string>>(
+    new Set()
+  );
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const addAnchorRef = useRef<HTMLDivElement | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isAddOpen) return;
+    const el = addAnchorRef.current;
+    if (!el) return;
+    const compute = () => {
+      const rect = el.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const POPOVER_WIDTH = 256; // w-64
+      const MARGIN = 8;
+      const center = rect.left + rect.width / 2;
+      const minCenter = MARGIN + POPOVER_WIDTH / 2;
+      const maxCenter = viewportWidth - MARGIN - POPOVER_WIDTH / 2;
+      const clampedCenter = Math.max(minCenter, Math.min(maxCenter, center));
+      setPopoverPos({ top: rect.bottom + 8, left: clampedCenter });
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, true);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute, true);
+    };
+  }, [isAddOpen]);
 
   const toggleFriend = (friend: Friend) => {
     selectionHaptic();
@@ -38,9 +70,9 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
       newSelected.add(friend.id);
     }
     setSelectedFriends(newSelected);
-    
+
     // Update parent with selected friends
-    const selected = allFriends.filter(f => newSelected.has(f.id));
+    const selected = allFriends.filter((f) => newSelected.has(f.id));
     onFriendsChange(selected);
   };
 
@@ -69,22 +101,22 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
                     <Avatar
                       className={`w-16 h-16 transition-all duration-200 ${
                         isSelected
-                          ? 'ring-4 ring-secondary shadow-lg scale-105'
-                          : 'ring-2 ring-border hover:ring-secondary/50'
+                          ? "ring-4 ring-secondary shadow-lg scale-105"
+                          : "ring-2 ring-border hover:ring-secondary/50"
                       }`}
                     >
                       <AvatarImage src={friend.avatar} alt={friend.name} />
                       <AvatarFallback
                         className={`transition-colors ${
                           isSelected
-                            ? 'bg-secondary text-secondary-foreground'
-                            : 'bg-muted'
+                            ? "bg-secondary text-secondary-foreground"
+                            : "bg-muted"
                         }`}
                       >
                         {friend.name
-                          .split(' ')
+                          .split(" ")
                           .map((n) => n[0])
-                          .join('')
+                          .join("")
                           .slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
@@ -106,7 +138,7 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
                   </div>
                   <span
                     className={`text-sm text-center line-clamp-1 w-full transition-colors ${
-                      isSelected ? 'text-secondary' : 'text-foreground'
+                      isSelected ? "text-secondary" : "text-foreground"
                     }`}
                   >
                     {friend.name}
@@ -116,20 +148,21 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
             );
           })}
 
-          {/* Add new friend button */}
-          <button
-            onClick={() => {}}
-            className="flex-shrink-0 snap-start no-min-touch"
+          {/* Add new friend button + anchored popover */}
+          <div
+            ref={addAnchorRef}
+            className="relative flex-shrink-0 snap-start no-min-touch"
           >
-            <div className="flex flex-col items-center gap-2 w-20">
-              <div className="w-16 h-16 rounded-full border-2 border-dashed border-secondary bg-secondary/5 flex items-center justify-center hover:bg-secondary/10 transition-colors">
-                <UserPlus className="w-6 h-6 text-secondary" />
+            <button onClick={() => setIsAddOpen((v) => !v)} className="">
+              <div className="flex flex-col items-center gap-2 w-20">
+                <div className="w-16 h-16 rounded-full border-2 border-dashed border-secondary bg-secondary/5 flex items-center justify-center hover:bg-secondary/10 transition-colors">
+                  <UserPlus className="w-6 h-6 text-secondary" />
+                </div>
+                <span className="text-sm text-center text-secondary">Add</span>
               </div>
-              <span className="text-sm text-center text-secondary">
-                Add
-              </span>
-            </div>
-          </button>
+            </button>
+            {/* popover rendered in portal below */}
+          </div>
         </div>
 
         {/* Scroll fade indicators */}
@@ -146,6 +179,74 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
           scrollbar-width: none;
         }
       `}</style>
+      {/* Portal popover to avoid clipping by overflow-hidden ancestors */}
+      {isAddOpen &&
+        popoverPos &&
+        createPortal(
+          <div
+            className="z-50"
+            style={{
+              position: "fixed",
+              top: popoverPos.top,
+              left: popoverPos.left,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <div className="w-64 rounded-xl border border-secondary/20 bg-background shadow-xl p-3">
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-background border-l border-t border-secondary/20" />
+              <h3 className="text-sm font-medium mb-2">Add Friend</h3>
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="Name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="h-9 bg-input-background border-secondary/30 focus:border-secondary"
+                  autoComplete="name"
+                />
+                <Input
+                  type="tel"
+                  placeholder="Phone (optional)"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="h-9 bg-input-background border-secondary/30 focus:border-secondary"
+                  autoComplete="tel"
+                />
+              </div>
+              <div className="mt-3 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const name = newName.trim();
+                    const phone = newPhone.trim();
+                    if (!name) return;
+                    const friend: Friend = {
+                      id: String(Date.now()),
+                      name,
+                      phone,
+                      avatar: "",
+                    };
+                    setAllFriends([...allFriends, friend]);
+                    setNewName("");
+                    setNewPhone("");
+                    setIsAddOpen(false);
+                  }}
+                  disabled={!newName.trim()}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
