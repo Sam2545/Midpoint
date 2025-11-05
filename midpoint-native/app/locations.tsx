@@ -322,17 +322,59 @@ export default function LocationsPage() {
                   </View>
 
                   {/* Search Button */}
-                  <Button
+                  <Pressable
                     onPress={handleSearch}
-                    className={`w-full h-12 ${!isValid ? "opacity-50" : ""}`}
-                    size="lg"
                     disabled={!isValid}
+                    style={({ pressed }) => [
+                      {
+                        width: "100%",
+                        height: 56,
+                        backgroundColor: isValid ? "#667eea" : "#cbd5e1",
+                        borderRadius: 16,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "row",
+                        shadowColor: "#667eea",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: isValid ? 0.3 : 0,
+                        shadowRadius: 8,
+                        elevation: isValid ? 8 : 0,
+                        transform: [{ scale: pressed && isValid ? 0.98 : 1 }],
+                        opacity: !isValid ? 0.6 : pressed ? 0.9 : 1,
+                      },
+                    ]}
                   >
-                    <Search size={20} color="white" />
-                    <Text className="ml-2 text-primary-foreground">
+                    <LinearGradient
+                      colors={
+                        isValid
+                          ? ["#667eea", "#764ba2"]
+                          : ["#cbd5e1", "#94a3b8"]
+                      }
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        borderRadius: 16,
+                      }}
+                    />
+                    <Search
+                      size={22}
+                      color="white"
+                      style={{ marginRight: 10 }}
+                    />
+                    <Text
+                      style={{
+                        color: "white",
+                        fontSize: 18,
+                        fontWeight: "700",
+                        letterSpacing: 0.5,
+                      }}
+                    >
                       Find Midpoint
                     </Text>
-                  </Button>
+                  </Pressable>
 
                   {/* Test Button - Remove this after testing */}
                   <Button
