@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -22,6 +21,8 @@ import { ActivitySelector } from "../components/ActivitySelector";
 import { LocationInputWithAutocomplete } from "../components/LocationInputWithAutocomplete";
 import { Friend, LocationEntry } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
+import { sharedStyles } from "../constants/styles";
+import { Colors } from "../constants/Colors";
 
 export default function LocationsPage() {
   const [activity, setActivity] = useState("restaurants");
@@ -190,45 +191,45 @@ export default function LocationsPage() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={sharedStyles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.flex1}
+        style={sharedStyles.flex1}
       >
         <ScrollView
-          style={styles.flex1}
-          contentContainerStyle={styles.scrollContent}
+          style={sharedStyles.flex1}
+          contentContainerStyle={sharedStyles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           <LinearGradient
-            colors={["#dbeafe", "#fef3c7"]}
-            style={styles.gradient}
+            colors={Colors.gradientBackground}
+            style={sharedStyles.gradient}
           >
-            <View style={styles.content}>
-              <View style={styles.card}>
+            <View style={sharedStyles.content}>
+              <View style={sharedStyles.card}>
                 {/* Header */}
                 <LinearGradient
-                  colors={["#c2410c", "#2563eb"]}
-                  style={styles.header}
+                  colors={Colors.gradientHeader}
+                  style={sharedStyles.header}
                 >
-                  <View style={styles.headerTop}>
+                  <View style={sharedStyles.headerTop}>
                     <Pressable
                       onPress={() => router.back()}
                       style={({ pressed }) => [
-                        styles.backButton,
+                        sharedStyles.backButton,
                         { opacity: pressed ? 0.8 : 1 },
                       ]}
                     >
                       <ArrowLeft size={20} color="white" />
                     </Pressable>
                   </View>
-                  <View style={styles.headerContent}>
-                    <View style={styles.iconContainer}>
+                  <View style={sharedStyles.headerContent}>
+                    <View style={sharedStyles.iconContainer}>
                       <MapPin size={32} color="white" />
                     </View>
                     <View>
-                      <Text style={styles.title}>Plan Your Meetup</Text>
-                      <Text style={styles.subtitle}>
+                      <Text style={sharedStyles.title}>Plan Your Meetup</Text>
+                      <Text style={sharedStyles.subtitle}>
                         Invite friends & set locations
                       </Text>
                     </View>
@@ -236,22 +237,22 @@ export default function LocationsPage() {
                 </LinearGradient>
 
                 {/* Content */}
-                <View style={styles.formContent}>
+                <View style={sharedStyles.formContent}>
                   {/* Friend Carousel */}
                   <FriendCarousel onFriendsChange={handleFriendsChange} />
 
                   <Separator className="mb-6" />
 
                   {/* Locations List */}
-                  <View style={styles.locationsList}>
+                  <View style={sharedStyles.locationsList}>
                     {locations.map((loc, index) => (
-                      <View key={loc.id} style={styles.locationCard}>
-                        <View style={styles.locationCardContainer}>
-                          <View style={styles.locationRow}>
-                            <View style={styles.avatarContainer}>
+                      <View key={loc.id} style={sharedStyles.locationCard}>
+                        <View style={sharedStyles.locationCardContainer}>
+                          <View style={sharedStyles.locationRow}>
+                            <View style={sharedStyles.avatarContainer}>
                               <Avatar className="w-10 h-10 ring-2 ring-secondary/50">
                                 <AvatarFallback className="bg-secondary/10 text-secondary">
-                                  <Text style={styles.avatarText}>
+                                  <Text style={sharedStyles.avatarTextSmall}>
                                     {loc.isMe
                                       ? "👤"
                                       : loc.personName
@@ -263,8 +264,8 @@ export default function LocationsPage() {
                                 </AvatarFallback>
                               </Avatar>
                             </View>
-                            <View style={styles.locationInputContainer}>
-                              <Text style={styles.locationLabel}>
+                            <View style={sharedStyles.locationInputContainer}>
+                              <Text style={sharedStyles.locationLabel}>
                                 {loc.personName}
                               </Text>
                               <LocationInputWithAutocomplete
@@ -276,7 +277,7 @@ export default function LocationsPage() {
                                 onSelectPlace={(place) =>
                                   handlePlaceSelect(loc.id, place)
                                 }
-                                style={styles.locationInput}
+                                style={sharedStyles.locationInput}
                                 autoComplete="street-address"
                               />
                             </View>
@@ -284,11 +285,11 @@ export default function LocationsPage() {
                               <Pressable
                                 onPress={() => removeLocation(loc.id)}
                                 style={({ pressed }) => [
-                                  styles.removeButton,
+                                  sharedStyles.removeButton,
                                   { opacity: pressed ? 0.8 : 1 },
                                 ]}
                               >
-                                <X size={16} color="#64748b" />
+                                <X size={16} color={Colors.textMuted} />
                               </Pressable>
                             )}
                           </View>
@@ -298,7 +299,7 @@ export default function LocationsPage() {
                   </View>
 
                   {/* Add More Button */}
-                  <View style={styles.addMoreButtonContainer}>
+                  <View style={sharedStyles.addMoreButtonContainer}>
                     <Button
                       variant="outline"
                       className="w-full mb-6 border-secondary text-secondary"
@@ -314,7 +315,7 @@ export default function LocationsPage() {
                   <Separator className="mb-6" />
 
                   {/* Activity Selector */}
-                  <View style={styles.activitySection}>
+                  <View style={sharedStyles.activitySection}>
                     <ActivitySelector
                       selected={activity}
                       onSelect={setActivity}
@@ -397,142 +398,3 @@ export default function LocationsPage() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-  flex1: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 400,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "rgba(37, 99, 235, 0.2)",
-  },
-  header: {
-    padding: 24,
-    paddingBottom: 32,
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    marginBottom: 16,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    padding: 12,
-    borderRadius: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "white",
-  },
-  subtitle: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 14,
-  },
-  formContent: {
-    padding: 24,
-    marginTop: -24,
-  },
-  locationsList: {
-    marginBottom: 24,
-    gap: 16,
-  },
-  locationCard: {
-    marginBottom: 16,
-  },
-  locationCardContainer: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.1)",
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  avatarContainer: {
-    marginTop: 4,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#2563eb",
-  },
-  locationInputContainer: {
-    flex: 1,
-    gap: 8,
-  },
-  locationLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#64748b",
-  },
-  locationInput: {
-    height: 40,
-    borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.3)",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#f8fafc",
-    fontSize: 16,
-  },
-  removeButton: {
-    padding: 8,
-    marginTop: 4,
-  },
-  addMoreButtonContainer: {
-    marginBottom: 24,
-  },
-  activitySection: {
-    marginBottom: 24,
-  },
-  searchButton: {
-    width: "100%",
-    height: 48,
-    backgroundColor: "#c2410c",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  searchButtonDisabled: {
-    opacity: 0.5,
-  },
-});
