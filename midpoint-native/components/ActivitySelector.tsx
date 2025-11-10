@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Coffee, ShoppingBag, Utensils } from "lucide-react-native";
 import { selectionHaptic } from "../utils/haptics";
+import { colors } from "../constants/theme";
 
 interface ActivitySelectorProps {
   selected: string;
@@ -41,7 +42,7 @@ export function ActivitySelector({
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <Icon size={24} color={isSelected ? "white" : "#64748b"} />
+              <Icon size={24} color={isSelected ? colors.icon.white : colors.icon.muted} />
               <Text
                 style={[
                   styles.activityText,
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#1e293b",
+    color: colors.foreground,
     marginBottom: 12,
   },
   activitiesContainer: {
@@ -85,21 +86,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   activityButtonSelected: {
-    backgroundColor: "#c2410c",
-    borderColor: "#c2410c",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   activityButtonUnselected: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e2e8f0",
+    backgroundColor: colors.card,
+    borderColor: colors.border,
   },
   activityText: {
     fontSize: 14,
     fontWeight: "500",
   },
   activityTextSelected: {
-    color: "white",
+    color: colors.white,
   },
   activityTextUnselected: {
-    color: "#1e293b",
+    color: colors.foreground,
   },
 });

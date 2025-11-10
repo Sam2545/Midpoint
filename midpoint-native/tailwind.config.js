@@ -9,32 +9,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#c2410c',
+        // Primary brand color - Warm tan (#E2A16F)
+        primary: '#E2A16F',
         'primary-foreground': '#ffffff',
-        secondary: '#2563eb',
+        // Secondary brand color - Muted blue (#86B0BD)
+        secondary: '#86B0BD',
         'secondary-foreground': '#ffffff',
-        background: '#ffffff',
+        // Background - Cream (#FFF0DD)
+        background: '#FFF0DD',
+        // Foreground text - Dark gray for readability
         foreground: '#1e293b',
+        // Card - White for contrast on cream background
         card: '#ffffff',
         'card-foreground': '#1e293b',
         popover: '#ffffff',
         'popover-foreground': '#1e293b',
-        muted: '#f1f5f9',
+        // Muted - Light gray (#D1D3D4)
+        muted: '#D1D3D4',
         'muted-foreground': '#64748b',
-        accent: '#dbeafe',
-        'accent-foreground': '#1e40af',
+        // Accent - Muted blue (#86B0BD)
+        accent: '#86B0BD',
+        'accent-foreground': '#ffffff',
         destructive: '#ef4444',
         'destructive-foreground': '#ffffff',
-        border: '#e2e8f0',
+        // Border - Light gray (#D1D3D4)
+        border: '#D1D3D4',
         input: 'transparent',
-        'input-background': '#f8fafc',
-        ring: '#c2410c',
+        'input-background': '#ffffff',
+        // Ring - Primary tan for focus states
+        ring: '#E2A16F',
         chart: {
-          '1': '#c2410c',
-          '2': '#2563eb',
-          '3': '#8b5cf6',
-          '4': '#ec4899',
-          '5': '#14b8a6',
+          '1': '#E2A16F',  // Tan
+          '2': '#86B0BD',  // Blue
+          '3': '#D1D3D4',  // Gray
+          '4': '#FFF0DD',  // Cream
+          '5': '#1e293b',  // Dark gray
         },
       },
       borderRadius: {

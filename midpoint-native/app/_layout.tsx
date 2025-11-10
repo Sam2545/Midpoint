@@ -50,6 +50,12 @@ function RootLayoutNav() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="create-account" />
+      <Stack.Screen name="home" />
+      <Stack.Screen name="events" />
+      <Stack.Screen name="event-detail" />
+      <Stack.Screen name="add-friends" />
       <Stack.Screen name="locations" />
       <Stack.Screen name="map" />
       <Stack.Screen name="poll" />

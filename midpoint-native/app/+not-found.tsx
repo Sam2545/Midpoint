@@ -1,19 +1,34 @@
-import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { Text, View } from '@/components/Themed';
+import { Link, Stack, router } from 'expo-router';
+import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Home, AlertCircle } from 'lucide-react-native';
+import { colors } from '../constants/theme';
+import { Button } from '../components/ui/Button';
 
 export default function NotFoundScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn't exist.</Text>
-
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
-        </Link>
-      </View>
+      <Stack.Screen options={{ title: 'Page Not Found' }} />
+      <SafeAreaView style={styles.container} className="bg-background">
+        <View style={styles.content}>
+          <View style={styles.iconContainer}>
+            <AlertCircle size={64} color={colors.primary} />
+          </View>
+          <Text style={styles.title}>Page Not Found</Text>
+          <Text style={styles.subtitle}>
+            The screen you're looking for doesn't exist.
+          </Text>
+          
+          <Button
+            onPress={() => router.push('/')}
+            className="mt-8"
+            size="lg"
+          >
+            <Home size={20} color={colors.icon.white} />
+            <Text className="ml-2 text-primary-foreground">Go to Home</Text>
+          </Button>
+        </View>
+      </SafeAreaView>
     </>
   );
 }
@@ -21,20 +36,28 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
+  iconContainer: {
+    marginBottom: 24,
+  },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.foreground,
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#2e78b7',
+  subtitle: {
+    fontSize: 16,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    maxWidth: 300,
   },
 });

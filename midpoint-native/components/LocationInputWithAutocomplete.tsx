@@ -11,6 +11,7 @@ import {
 import { MapPin, X } from "lucide-react-native";
 import { useLocationSearch } from "../hooks/useLocationSearch";
 import { PlacePrediction } from "../services/PlacesService";
+import { colors, colorOpacity } from "../constants/theme";
 
 interface LocationInputWithAutocompleteProps {
   placeholder?: string;
@@ -79,7 +80,7 @@ export const LocationInputWithAutocomplete: React.FC<
       onPress={() => handleSelectSuggestion(item)}
     >
       <View style={styles.suggestionContent}>
-        <MapPin size={16} color="#64748b" />
+        <MapPin size={16} color={colors.icon.muted} />
         <View style={styles.suggestionText}>
           <Text style={styles.mainText}>
             {item.structured_formatting.main_text}
@@ -104,16 +105,16 @@ export const LocationInputWithAutocomplete: React.FC<
           onChangeText={handleInputChange}
           onFocus={() => setShowSuggestions(input.length >= 2)}
           autoComplete={autoComplete}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.mutedForeground}
         />
         {input.length > 0 && (
           <Pressable onPress={handleClear} style={styles.clearButton}>
-            <X size={16} color="#64748b" />
+            <X size={16} color={colors.icon.muted} />
           </Pressable>
         )}
         {isLoading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#2563eb" />
+            <ActivityIndicator size="small" color={colors.secondary} />
           </View>
         )}
       </View>
@@ -144,16 +145,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.3)",
+    borderColor: colorOpacity.secondary['30'],
     borderRadius: 8,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.inputBackground,
     paddingHorizontal: 12,
     minHeight: 40,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#1e293b",
+    color: colors.foreground,
     paddingVertical: 8,
   },
   clearButton: {
@@ -169,11 +170,11 @@ const styles = StyleSheet.create({
     top: "100%",
     left: 0,
     right: 0,
-    backgroundColor: "white",
+    backgroundColor: colors.card,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#000",
+    borderColor: colors.border,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
   suggestionItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: colors.muted,
   },
   suggestionContent: {
     flexDirection: "row",
@@ -200,16 +201,16 @@ const styles = StyleSheet.create({
   mainText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#1e293b",
+    color: colors.foreground,
   },
   secondaryText: {
     fontSize: 12,
-    color: "#64748b",
+    color: colors.mutedForeground,
     marginTop: 2,
   },
   errorText: {
     fontSize: 12,
-    color: "#ef4444",
+    color: colors.destructive,
     marginTop: 4,
   },
 });

@@ -1,290 +1,501 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, MapPin, ThumbsUp, ThumbsDown, Send, MessageSquare } from 'lucide-react-native';
-import { Button } from '../components/ui/Button';
-import { Card, CardContent } from '../components/ui/Card';
+import { ArrowLeft, MapPin, ThumbsUp, MessageSquare } from 'lucide-react-native';
 import { Avatar, AvatarFallback } from '../components/ui/Avatar';
-import { Badge } from '../components/ui/Badge';
-import { Input } from '../components/ui/Input';
-import { Separator } from '../components/ui/Separator';
 import { Vote } from '../utils/types';
-import { successHaptic, lightHaptic } from '../utils/haptics';
+import { successHaptic } from '../utils/haptics';
+import { colors, colorOpacity } from '../constants/theme';
 
-export default function SharePollPage() {
-  const [votes, setVotes] = useState<Vote[]>([
-    {
-      userId: '1',
-      userName: 'Sarah Johnson',
-      status: 'confirmed',
-      timestamp: '2 mins ago'
-    },
-    {
-      userId: '2',
-      userName: 'Mike Chen',
-      status: 'suggested',
-      suggestion: 'How about The Oak Restaurant instead? It\'s closer to me.',
-      timestamp: '5 mins ago'
-    },
-    {
-      userId: '3',
-      userName: 'Emma Davis',
-      status: 'confirmed',
-      timestamp: '7 mins ago'
-    }
-  ]);
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-  const [myVote, setMyVote] = useState<'confirmed' | 'denied' | null>(null);
-  const [suggestion, setSuggestion] = useState('');
-  const [showSuggestion, setShowSuggestion] = useState(false);
+// Mock data
+const mockVotes: Vote[] = [
+  {
+    userId: '1',
+    userName: 'Sarah Johnson',
+    status: 'confirmed',
+    timestamp: '2 mins ago'
+  },
+  {
+    userId: '2',
+    userName: 'Mike Chen',
+    status: 'suggested',
+    suggestion: 'How about The Oak Restaurant instead? It\'s closer to me.',
+    timestamp: '5 mins ago'
+  },
+];
 
-  const handleVote = (vote: 'confirmed' | 'denied') => {
-    if (vote === 'confirmed') {
-      successHaptic();
-    } else {
-      lightHaptic();
-    }
-    setMyVote(vote);
-    if (vote === 'confirmed') {
-      setShowSuggestion(false);
-      setSuggestion('');
-    }
+const midpointLocation = {
+  name: 'The Garden Bistro',
+  address: '123 Main St, Downtown',
+};
+
+export default function ConfirmMidpointPage() {
+  const [votes, setVotes] = useState<Vote[]>(mockVotes);
+  const [myVote, setMyVote] = useState<'confirmed' | 'suggested' | null>(null);
+  const [mySuggestion, setMySuggestion] = useState('');
+
+  const handleConfirm = () => {
+    successHaptic();
+    setMyVote('confirmed');
+    setMySuggestion('');
   };
 
   const handleSuggest = () => {
-    setShowSuggestion(true);
-    setMyVote(null);
+    successHaptic();
+    setMyVote('suggested');
+    // In a real app, this would open a modal or navigate to a suggestion form
+    // For now, we'll just set the status
   };
 
-  const handleSubmitSuggestion = () => {
-    if (suggestion.trim()) {
-      lightHaptic();
-      // In real app, would submit the suggestion
-      setMyVote('denied');
-    }
-  };
-
+  // Calculate confirmed count (excluding current user if not confirmed)
   const confirmedCount = votes.filter(v => v.status === 'confirmed').length + (myVote === 'confirmed' ? 1 : 0);
-  const totalParticipants = votes.length + 1;
+  const totalParticipants = votes.length + 1; // +1 for current user
 
-  const renderVote = (vote: Vote) => (
-    <Card key={vote.userId}>
-      <CardContent className="p-4">
-        <View className="flex-row items-start gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarFallback>
-              <Text className="text-sm font-medium">
-                {vote.userName.split(' ').map(n => n[0]).join('')}
-              </Text>
-            </AvatarFallback>
-          </Avatar>
-          <View className="flex-1 min-w-0">
-            <View className="flex-row items-center gap-2 mb-1">
-              <Text className="font-medium">{vote.userName}</Text>
-              {vote.status === 'confirmed' && (
-                <Badge className="bg-primary">
-                  <ThumbsUp size={12} color="white" />
-                  <Text className="ml-1 text-xs text-primary-foreground">Confirmed</Text>
-                </Badge>
-              )}
-              {vote.status === 'denied' && (
-                <Badge variant="destructive">
-                  <ThumbsDown size={12} color="white" />
-                  <Text className="ml-1 text-xs text-destructive-foreground">Denied</Text>
-                </Badge>
-              )}
-              {vote.status === 'suggested' && (
-                <Badge variant="secondary">
-                  <MessageSquare size={12} color="white" />
-                  <Text className="ml-1 text-xs text-secondary-foreground">Suggested</Text>
-                </Badge>
-              )}
-            </View>
-            <Text className="text-xs text-muted-foreground mb-2">{vote.timestamp}</Text>
-            {vote.suggestion && (
-              <Text className="text-sm bg-muted p-2 rounded-lg">{vote.suggestion}</Text>
-            )}
-          </View>
-        </View>
-      </CardContent>
-    </Card>
-  );
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase();
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView 
-        className="flex-1"
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-      >
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header Section with Gradient */}
         <LinearGradient
-          colors={['#dbeafe', '#fef3c7']}
-          className="flex-1"
+          colors={colors.gradients.header}
+          style={styles.headerSection}
         >
-          <View className="flex-1 items-center justify-center p-4">
-            <View className="w-full max-w-md bg-background rounded-2xl shadow-xl overflow-hidden border-2 border-secondary/20">
-              {/* Header */}
-              <LinearGradient
-                colors={['#c2410c', '#2563eb']}
-                className="p-6 pb-8"
-              >
-                <Pressable
-                  onPress={() => router.back()}
-                  className="mb-4 p-2 -ml-2"
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.8 : 1,
-                  })}
-                >
-                  <ArrowLeft size={20} color="white" />
-                </Pressable>
-                <View className="flex-row items-center gap-3">
-                  <View className="bg-white/20 p-3 rounded-xl">
-                    <MapPin size={32} color="white" />
-                  </View>
-                  <View>
-                    <Text className="text-2xl font-semibold text-white">Confirm Midpoint</Text>
-                    <Text className="text-white/80 text-sm">Vote or suggest alternatives</Text>
-                  </View>
-                </View>
-              </LinearGradient>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <ArrowLeft size={24} color={colors.icon.white} />
+          </Pressable>
 
-              {/* Content */}
-              <View className="p-6">
-                {/* Midpoint Location Card */}
-                <Card className="mb-6 border-2 border-secondary/30">
-                  <CardContent className="p-4">
-                    <View className="flex-row items-start gap-3 mb-3">
-                      <View className="bg-secondary/10 p-2 rounded-lg">
-                        <MapPin size={20} color="#2563eb" />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-lg font-semibold">The Garden Bistro</Text>
-                        <Text className="text-sm text-muted-foreground">123 Main St, Downtown</Text>
-                        <Text className="text-sm text-secondary mt-1">Midpoint location</Text>
-                      </View>
-                    </View>
-                    
-                    {/* Vote Progress */}
-                    <View className="space-y-2">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm text-muted-foreground">Group confirmation</Text>
-                        <Text className="text-sm text-secondary">{confirmedCount}/{totalParticipants} confirmed</Text>
-                      </View>
-                      <View className="w-full bg-muted rounded-full h-2">
-                        <View
-                          className="bg-gradient-to-r from-primary to-secondary rounded-full h-2"
-                          style={{ width: `${(confirmedCount / totalParticipants) * 100}%` }}
-                        />
-                      </View>
-                    </View>
-                  </CardContent>
-                </Card>
-
-                {/* Your Response */}
-                {!myVote && !showSuggestion && (
-                  <View className="mb-6">
-                    <Text className="mb-3 text-secondary font-medium">Your Response</Text>
-                    <View className="flex-row gap-3">
-                      <Button
-                        onPress={() => handleVote('confirmed')}
-                        variant="outline"
-                        className="flex-1 h-auto py-4 flex-col gap-2 border-secondary text-secondary"
-                      >
-                        <ThumbsUp size={20} color="#2563eb" />
-                        <Text className="text-secondary">Confirm</Text>
-                      </Button>
-                      <Button
-                        onPress={handleSuggest}
-                        variant="outline"
-                        className="flex-1 h-auto py-4 flex-col gap-2 border-secondary text-secondary"
-                      >
-                        <MessageSquare size={20} color="#2563eb" />
-                        <Text className="text-secondary">Suggest New</Text>
-                      </Button>
-                    </View>
-                  </View>
-                )}
-
-                {/* Vote Confirmed */}
-                {myVote === 'confirmed' && (
-                  <Card className="mb-6 border-2 border-secondary">
-                    <CardContent className="p-4">
-                      <View className="flex-row items-center gap-3">
-                        <View className="bg-secondary/10 p-2 rounded-lg">
-                          <ThumbsUp size={20} color="#2563eb" />
-                        </View>
-                        <View className="flex-1">
-                          <Text className="text-secondary font-medium">You confirmed this location</Text>
-                          <Text className="text-sm text-muted-foreground">Waiting for others to respond</Text>
-                        </View>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onPress={() => setMyVote(null)}
-                        >
-                          <Text className="text-sm">Change</Text>
-                        </Button>
-                      </View>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Suggestion Form */}
-                {showSuggestion && (
-                  <Card className="mb-6">
-                    <CardContent className="p-4 space-y-3">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="font-medium">Suggest Alternative</Text>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onPress={() => {
-                            setShowSuggestion(false);
-                            setSuggestion('');
-                          }}
-                        >
-                          <Text className="text-sm">Cancel</Text>
-                        </Button>
-                      </View>
-                      <Input
-                        placeholder="Suggest a different location or time..."
-                        value={suggestion}
-                        onChangeText={setSuggestion}
-                        multiline
-                        numberOfLines={3}
-                        className="resize-none"
-                      />
-                      <Button
-                        onPress={handleSubmitSuggestion}
-                        className="w-full"
-                        disabled={!suggestion.trim()}
-                      >
-                        <Send size={16} color="white" />
-                        <Text className="ml-2 text-primary-foreground">Submit Suggestion</Text>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Separator className="mb-6" />
-
-                {/* Group Responses */}
-                <View className="max-h-[300px]">
-                  <Text className="sticky top-0 bg-background pb-2 z-10 font-medium mb-3">Group Responses</Text>
-                  
-                  <ScrollView showsVerticalScrollIndicator={false}>
-                    <View className="space-y-3">
-                      {votes.map(renderVote)}
-                    </View>
-                  </ScrollView>
-                </View>
-              </View>
+          <View style={styles.headerContent}>
+            <View style={styles.iconContainer}>
+              <MapPin size={28} color={colors.icon.white} strokeWidth={2} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Confirm Midpoint</Text>
+              <Text style={styles.headerSubtitle}>
+                Vote or suggest alternatives
+              </Text>
             </View>
           </View>
         </LinearGradient>
-      </ScrollView>
+
+        {/* Body Section */}
+        <ScrollView
+          style={styles.bodySection}
+          contentContainerStyle={styles.bodyScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Midpoint Location Card */}
+          <View style={styles.midpointCard}>
+            <View style={styles.midpointHeader}>
+              <View style={styles.midpointIconContainer}>
+                <MapPin size={20} color={colors.secondary} />
+              </View>
+              <View style={styles.midpointInfo}>
+                <Text style={styles.midpointName}>{midpointLocation.name}</Text>
+                <Text style={styles.midpointAddress}>{midpointLocation.address}</Text>
+                <Text style={styles.midpointLabel}>Midpoint location</Text>
+              </View>
+            </View>
+
+            {/* Group Confirmation Progress */}
+            <View style={styles.confirmationSection}>
+              <View style={styles.confirmationHeader}>
+                <Text style={styles.confirmationLabel}>Group confirmation</Text>
+                <Text style={styles.confirmationCount}>{confirmedCount}/{totalParticipants} confirmed</Text>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <LinearGradient
+                  colors={colors.gradients.header}
+                  style={[styles.progressBar, { width: `${(confirmedCount / totalParticipants) * 100}%` }]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Your Response Section */}
+          {!myVote && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Your Response</Text>
+              <View style={styles.responseButtons}>
+                <Pressable
+                  onPress={handleConfirm}
+                  style={({ pressed }) => [
+                    styles.responseButton,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <ThumbsUp size={24} color={colors.secondary} />
+                  <Text style={styles.responseButtonText}>Confirm</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSuggest}
+                  style={({ pressed }) => [
+                    styles.responseButton,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <MessageSquare size={24} color={colors.secondary} />
+                  <Text style={styles.responseButtonText}>Suggest New</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {/* My Vote Status */}
+          {myVote === 'confirmed' && (
+            <View style={styles.section}>
+              <View style={styles.myVoteCard}>
+                <View style={styles.myVoteContent}>
+                  <View style={styles.myVoteIconContainer}>
+                    <ThumbsUp size={20} color={colors.secondary} />
+                  </View>
+                  <Text style={styles.myVoteText}>You confirmed this location</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {myVote === 'suggested' && (
+            <View style={styles.section}>
+              <View style={styles.myVoteCard}>
+                <View style={styles.myVoteContent}>
+                  <View style={styles.myVoteIconContainer}>
+                    <MessageSquare size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.myVoteText}>You suggested an alternative</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Group Responses Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Group Responses</Text>
+            {votes.map((vote) => (
+              <View key={vote.userId} style={styles.responseCard}>
+                <View style={styles.responseCardContent}>
+                  <View style={styles.responseAvatarContainer}>
+                    <Avatar className="w-10 h-10">
+                      <AvatarFallback style={styles.avatarFallback}>
+                        <Text style={styles.avatarText}>{getInitials(vote.userName)}</Text>
+                      </AvatarFallback>
+                    </Avatar>
+                  </View>
+                  <View style={styles.responseInfo}>
+                    <View style={styles.responseHeader}>
+                      <Text style={styles.responseName}>{vote.userName}</Text>
+                      {vote.status === 'confirmed' && (
+                        <View style={styles.statusBadge}>
+                          <ThumbsUp size={12} color={colors.icon.white} />
+                          <Text style={styles.statusBadgeText}>Confirmed</Text>
+                        </View>
+                      )}
+                      {vote.status === 'suggested' && (
+                        <View style={[styles.statusBadge, styles.statusBadgeSuggested]}>
+                          <MessageSquare size={12} color={colors.icon.white} />
+                          <Text style={styles.statusBadgeText}>Suggested</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.responseTimestamp}>{vote.timestamp}</Text>
+                    {vote.suggestion && (
+                      <View style={styles.suggestionBubble}>
+                        <Text style={styles.suggestionText}>{vote.suggestion}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.card,
+  },
+  content: {
+    flex: 1,
+  },
+  headerSection: {
+    paddingTop: 16,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    height: HEADER_HEIGHT,
+    minHeight: 180,
+    maxHeight: 220,
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colorOpacity.white['20'],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colorOpacity.white['80'],
+    fontWeight: '400',
+  },
+  bodySection: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  bodyScrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.foreground,
+    marginBottom: 16,
+  },
+  midpointCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  midpointHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  midpointIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: colorOpacity.secondary['10'],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  midpointInfo: {
+    flex: 1,
+  },
+  midpointName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.secondary,
+    marginBottom: 4,
+  },
+  midpointAddress: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    marginBottom: 4,
+  },
+  midpointLabel: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  confirmationSection: {
+    marginTop: 12,
+  },
+  confirmationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  confirmationLabel: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+  },
+  confirmationCount: {
+    fontSize: 14,
+    color: colors.secondary,
+    fontWeight: '500',
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 8,
+    backgroundColor: colors.muted,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  responseButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  responseButton: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  responseButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.secondary,
+  },
+  myVoteCard: {
+    backgroundColor: colorOpacity.secondary['10'],
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colorOpacity.secondary['20'],
+  },
+  myVoteContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  myVoteIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  myVoteText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.foreground,
+  },
+  responseCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  responseCardContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  responseAvatarContainer: {
+    marginTop: 2,
+  },
+  avatarFallback: {
+    backgroundColor: colors.muted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.foreground,
+  },
+  responseInfo: {
+    flex: 1,
+  },
+  responseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  responseName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.foreground,
+  },
+  statusBadge: {
+    backgroundColor: colors.secondary,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusBadgeSuggested: {
+    backgroundColor: colors.primary,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.white,
+  },
+  responseTimestamp: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginBottom: 8,
+  },
+  suggestionBubble: {
+    backgroundColor: colorOpacity.primary['20'],
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 4,
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: colors.foreground,
+    lineHeight: 20,
+  },
+});

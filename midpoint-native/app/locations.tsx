@@ -7,11 +7,12 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { MapPin, Plus, X, Search, ArrowLeft } from "lucide-react-native";
+import { MapPin, Plus, X, Search, ArrowLeft, User } from "lucide-react-native";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Card, CardContent } from "../components/ui/Card";
@@ -22,6 +23,10 @@ import { ActivitySelector } from "../components/ActivitySelector";
 import { LocationInputWithAutocomplete } from "../components/LocationInputWithAutocomplete";
 import { Friend, LocationEntry } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
+import { colors, colorOpacity } from "../constants/theme";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
 export default function LocationsPage() {
   const [activity, setActivity] = useState("restaurants");
@@ -58,28 +63,29 @@ export default function LocationsPage() {
   };
 
   const handlePlaceSelect = async (id: string, place: any) => {
-    try {
-      // Get coordinates from place details
-      const response = await fetch(
-        `http://localhost:8080/api/places/details?placeId=${place.place_id}`
-      );
-      if (response.ok) {
-        const placeDetails = await response.json();
-        const coords = {
-          lat: placeDetails.geometry.location.lat,
-          lng: placeDetails.geometry.location.lng,
-        };
+    // COMMENTED OUT: Google Maps API call - not working right now
+    // try {
+    //   // Get coordinates from place details
+    //   const response = await fetch(
+    //     `http://localhost:8080/api/places/details?placeId=${place.place_id}`
+    //   );
+    //   if (response.ok) {
+    //     const placeDetails = await response.json();
+    //     const coords = {
+    //       lat: placeDetails.geometry.location.lat,
+    //       lng: placeDetails.geometry.location.lng,
+    //     };
 
-        setCoordinates((prev) => ({
-          ...prev,
-          [id]: coords,
-        }));
+    //     setCoordinates((prev) => ({
+    //       ...prev,
+    //       [id]: coords,
+    //     }));
 
-        console.log(`📍 Coordinates for ${id}:`, coords);
-      }
-    } catch (error) {
-      console.error("Error getting place coordinates:", error);
-    }
+    //     console.log(`📍 Coordinates for ${id}:`, coords);
+    //   }
+    // } catch (error) {
+    //   console.error("Error getting place coordinates:", error);
+    // }
   };
 
   const addMoreLocation = () => {
@@ -108,70 +114,75 @@ export default function LocationsPage() {
     try {
       successHaptic();
 
-      // Get coordinates for all locations
-      const coordsArray = locations
-        .filter((loc) => coordinates[loc.id])
-        .map((loc) => coordinates[loc.id]);
+      // COMMENTED OUT: Google Maps API call - not working right now
+      // // Get coordinates for all locations
+      // const coordsArray = locations
+      //   .filter((loc) => coordinates[loc.id])
+      //   .map((loc) => coordinates[loc.id]);
 
-      if (coordsArray.length < 2) {
-        alert("Please select valid locations for at least 2 people");
-        return;
-      }
+      // if (coordsArray.length < 2) {
+      //   alert("Please select valid locations for at least 2 people");
+      //   return;
+      // }
 
-      // Convert activity to filters
-      const getActivityFilters = (activityType: string): string[] => {
-        switch (activityType) {
-          case "restaurants":
-            return ["restaurant"];
-          case "cafes":
-            return ["cafe"];
-          case "shopping":
-            return ["shopping_mall", "store"];
-          case "entertainment":
-            return ["movie_theater", "amusement_park", "zoo"];
-          default:
-            return ["restaurant", "cafe"];
-        }
-      };
+      // // Convert activity to filters
+      // const getActivityFilters = (activityType: string): string[] => {
+      //   switch (activityType) {
+      //     case "restaurants":
+      //       return ["restaurant"];
+      //     case "cafes":
+      //       return ["cafe"];
+      //     case "shopping":
+      //       return ["shopping_mall", "store"];
+      //     case "entertainment":
+      //       return ["movie_theater", "amusement_park", "zoo"];
+      //     default:
+      //       return ["restaurant", "cafe"];
+      //   }
+      // };
 
-      // Call backend API
-      const request = {
-        coords: coordsArray,
-        filters: getActivityFilters(activity),
-      };
+      // // Call backend API
+      // const request = {
+      //   coords: coordsArray,
+      //   filters: getActivityFilters(activity),
+      // };
 
-      console.log("🎯 Calling midpoint API:", request);
+      // console.log("🎯 Calling midpoint API:", request);
 
-      const response = await fetch(
-        "http://localhost:8080/api/places/midpoint",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(request),
-        }
-      );
+      // const response = await fetch(
+      //   "http://localhost:8080/api/places/midpoint",
+      //   {
+      //     method: "POST",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //     },
+      //     body: JSON.stringify(request),
+      //   }
+      // );
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log("✅ Midpoint data received:", data);
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   console.log("✅ Midpoint data received:", data);
 
-        // Navigate to map page with the data
-        router.push({
-          pathname: "/map",
-          params: {
-            activity: activity,
-            midpointData: JSON.stringify(data),
-          },
-        });
-      } else {
-        console.error("❌ API call failed:", response.status);
-        alert("Failed to find midpoint. Please try again.");
-      }
+      //   // Navigate to map page with the data
+      //   router.push({
+      //     pathname: "/map",
+      //     params: {
+      //       activity: activity,
+      //       midpointData: JSON.stringify(data),
+      //     },
+      //   });
+      // } else {
+      //   console.error("❌ API call failed:", response.status);
+      //   alert("Failed to find midpoint. Please try again.");
+      // }
+
+      // Navigate to map page directly (API calls commented out)
+      // Static UI will be shown - no data required
+      router.push("/map");
     } catch (error) {
       console.error("Navigation error:", error);
-      alert("Error finding midpoint. Please check your connection.");
+      alert("Error navigating to map page.");
     }
   };
 
@@ -195,162 +206,151 @@ export default function LocationsPage() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex1}
       >
-        <ScrollView
-          style={styles.flex1}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.content}>
+          {/* Header Section with Gradient */}
           <LinearGradient
-            colors={["#dbeafe", "#fef3c7"]}
-            style={styles.gradient}
+            colors={colors.gradients.header}
+            style={styles.headerSection}
           >
-            <View style={styles.content}>
-              <View style={styles.card}>
-                {/* Header */}
-                <LinearGradient
-                  colors={["#c2410c", "#2563eb"]}
-                  style={styles.header}
-                >
-                  <View style={styles.headerTop}>
-                    <Pressable
-                      onPress={() => router.back()}
-                      style={({ pressed }) => [
-                        styles.backButton,
-                        { opacity: pressed ? 0.8 : 1 },
-                      ]}
-                    >
-                      <ArrowLeft size={20} color="white" />
-                    </Pressable>
-                  </View>
-                  <View style={styles.headerContent}>
-                    <View style={styles.iconContainer}>
-                      <MapPin size={32} color="white" />
-                    </View>
-                    <View>
-                      <Text style={styles.title}>Plan Your Meetup</Text>
-                      <Text style={styles.subtitle}>
-                        Invite friends & set locations
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
+            <Pressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [
+                styles.backButton,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <ArrowLeft size={24} color={colors.icon.white} />
+            </Pressable>
 
-                {/* Content */}
-                <View style={styles.formContent}>
-                  {/* Friend Carousel */}
-                  <FriendCarousel onFriendsChange={handleFriendsChange} />
-
-                  <Separator className="mb-6" />
-
-                  {/* Locations List */}
-                  <View style={styles.locationsList}>
-                    {locations.map((loc, index) => (
-                      <View key={loc.id} style={styles.locationCard}>
-                        <View style={styles.locationCardContainer}>
-                          <View style={styles.locationRow}>
-                            <View style={styles.avatarContainer}>
-                              <Avatar className="w-10 h-10 ring-2 ring-secondary/50">
-                                <AvatarFallback className="bg-secondary/10 text-secondary">
-                                  <Text style={styles.avatarText}>
-                                    {loc.isMe
-                                      ? "👤"
-                                      : loc.personName
-                                          .split(" ")
-                                          .map((n) => n[0])
-                                          .join("")
-                                          .slice(0, 2)}
-                                  </Text>
-                                </AvatarFallback>
-                              </Avatar>
-                            </View>
-                            <View style={styles.locationInputContainer}>
-                              <Text style={styles.locationLabel}>
-                                {loc.personName}
-                              </Text>
-                              <LocationInputWithAutocomplete
-                                placeholder="Enter location or address"
-                                value={loc.location}
-                                onChangeText={(value) =>
-                                  updateLocation(loc.id, value)
-                                }
-                                onSelectPlace={(place) =>
-                                  handlePlaceSelect(loc.id, place)
-                                }
-                                style={styles.locationInput}
-                                autoComplete="street-address"
-                              />
-                            </View>
-                            {!loc.isMe && (
-                              <Pressable
-                                onPress={() => removeLocation(loc.id)}
-                                style={({ pressed }) => [
-                                  styles.removeButton,
-                                  { opacity: pressed ? 0.8 : 1 },
-                                ]}
-                              >
-                                <X size={16} color="#64748b" />
-                              </Pressable>
-                            )}
-                          </View>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Add More Button */}
-                  <View style={styles.addMoreButtonContainer}>
-                    <Button
-                      variant="outline"
-                      className="w-full mb-6 border-secondary text-secondary"
-                      onPress={addMoreLocation}
-                    >
-                      <Plus size={16} color="#2563eb" />
-                      <Text className="ml-2 text-secondary">
-                        Add More Location
-                      </Text>
-                    </Button>
-                  </View>
-
-                  <Separator className="mb-6" />
-
-                  {/* Activity Selector */}
-                  <View style={styles.activitySection}>
-                    <ActivitySelector
-                      selected={activity}
-                      onSelect={setActivity}
-                    />
-                  </View>
-
-                  {/* Search Button */}
-                  <Button
-                    onPress={handleSearch}
-                    className={`w-full h-12 ${!isValid ? "opacity-50" : ""}`}
-                    size="lg"
-                    disabled={!isValid}
-                  >
-                    <Search size={20} color="white" />
-                    <Text className="ml-2 text-primary-foreground">
-                      Find Midpoint
-                    </Text>
-                  </Button>
-
-                  {/* Test Button - Remove this after testing */}
-                  <Button
-                    onPress={() => {
-                      console.log("Test button pressed");
-                      router.push("/map");
-                    }}
-                    className="w-full h-12 mt-2"
-                    size="lg"
-                    variant="outline"
-                  >
-                    <Text className="text-primary">Test Navigation</Text>
-                  </Button>
-                </View>
+            <View style={styles.headerContent}>
+              <View style={styles.iconContainer}>
+                <MapPin size={28} color={colors.icon.white} strokeWidth={2} />
+              </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Plan Your Meetup</Text>
+                <Text style={styles.headerSubtitle}>
+                  Invite friends & set locations
+                </Text>
               </View>
             </View>
           </LinearGradient>
-        </ScrollView>
+
+          {/* Body Section - Form Content */}
+          <ScrollView
+            style={styles.bodySection}
+            contentContainerStyle={styles.bodyScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Friend Carousel */}
+            <View style={styles.section}>
+              <FriendCarousel onFriendsChange={handleFriendsChange} />
+            </View>
+
+            {/* Locations List */}
+            <View style={styles.section}>
+              <View style={styles.locationsList}>
+                {locations.map((loc, index) => (
+                  <View key={loc.id} style={styles.locationCard}>
+                    <View style={styles.locationCardContainer}>
+                      <View style={styles.locationRow}>
+                        <View style={styles.avatarContainer}>
+                          {loc.isMe ? (
+                            <View style={styles.meIconContainer}>
+                              <User size={18} color={colors.secondary} />
+                            </View>
+                          ) : (
+                            <Avatar className="w-10 h-10 ring-2 ring-secondary/50">
+                              <AvatarFallback className="bg-secondary/10 text-secondary">
+                                <Text style={styles.avatarText}>
+                                  {loc.personName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .slice(0, 2)}
+                                </Text>
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </View>
+                        <View style={styles.locationInputContainer}>
+                          <Text style={styles.locationLabel}>
+                            {loc.personName}
+                          </Text>
+                          <LocationInputWithAutocomplete
+                            placeholder="Enter location or address"
+                            value={loc.location}
+                            onChangeText={(value) =>
+                              updateLocation(loc.id, value)
+                            }
+                            onSelectPlace={(place) =>
+                              handlePlaceSelect(loc.id, place)
+                            }
+                            style={styles.locationInput}
+                            autoComplete="street-address"
+                          />
+                        </View>
+                        {!loc.isMe && (
+                          <Pressable
+                            onPress={() => removeLocation(loc.id)}
+                            style={({ pressed }) => [
+                              styles.removeButton,
+                              { opacity: pressed ? 0.8 : 1 },
+                            ]}
+                          >
+                            <X size={18} color={colors.icon.muted} />
+                          </Pressable>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Add More Button */}
+            <View style={styles.section}>
+              <Pressable
+                onPress={addMoreLocation}
+                style={({ pressed }) => [
+                  styles.addMoreButton,
+                  { opacity: pressed ? 0.9 : 1 },
+                ]}
+              >
+                <Plus size={18} color={colors.primary} />
+                <Text style={styles.addMoreButtonText}>
+                  Add More Location
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Activity Selector */}
+            <View style={styles.section}>
+              <ActivitySelector
+                selected={activity}
+                onSelect={setActivity}
+              />
+            </View>
+
+            {/* Search Button */}
+            <View style={styles.section}>
+              <Pressable
+                onPress={handleSearch}
+                disabled={!isValid}
+                style={({ pressed }) => [
+                  styles.findMidpointButton,
+                  !isValid && styles.findMidpointButtonDisabled,
+                  { opacity: pressed ? 0.9 : 1 },
+                ]}
+              >
+                <Search size={20} color={colors.icon.white} />
+                <Text style={styles.findMidpointButtonText}>
+                  Find Midpoint
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -359,138 +359,172 @@ export default function LocationsPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.card,
   },
   flex1: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
   content: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
   },
-  card: {
-    width: "100%",
-    maxWidth: 400,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "rgba(37, 99, 235, 0.2)",
-  },
-  header: {
-    padding: 24,
-    paddingBottom: 32,
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    marginBottom: 16,
+  headerSection: {
+    paddingTop: 16,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    height: HEADER_HEIGHT,
+    minHeight: 180,
+    maxHeight: 220,
+    justifyContent: 'space-between',
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 12,
+    flex: 1,
+    justifyContent: 'center',
   },
   iconContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    padding: 12,
+    width: 48,
+    height: 48,
     borderRadius: 12,
+    backgroundColor: colorOpacity.white['20'],
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "white",
+  headerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  subtitle: {
-    color: "rgba(255, 255, 255, 0.8)",
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
     fontSize: 14,
+    color: colorOpacity.white['80'],
+    fontWeight: '400',
   },
-  formContent: {
-    padding: 24,
-    marginTop: -24,
+  bodySection: {
+    flex: 1,
+    backgroundColor: colors.card,
+  },
+  bodyScrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 24,
   },
   locationsList: {
-    marginBottom: 24,
     gap: 16,
   },
   locationCard: {
     marginBottom: 16,
   },
   locationCardContainer: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.inputBackground,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.1)",
+    borderColor: colors.border,
   },
   locationRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 12,
   },
   avatarContainer: {
-    marginTop: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  meIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colorOpacity.secondary['20'],
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatarText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#2563eb",
+    color: colors.secondary,
   },
   locationInputContainer: {
     flex: 1,
-    gap: 8,
+    gap: 6,
   },
   locationLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#64748b",
+    color: colors.foreground,
+    marginBottom: 4,
   },
   locationInput: {
-    height: 40,
+    height: 44,
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.3)",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.card,
     fontSize: 16,
   },
   removeButton: {
     padding: 8,
-    marginTop: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  addMoreButtonContainer: {
-    marginBottom: 24,
+  addMoreButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
   },
-  activitySection: {
-    marginBottom: 24,
+  addMoreButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.primary,
   },
-  searchButton: {
-    width: "100%",
-    height: 48,
-    backgroundColor: "#c2410c",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
+  findMidpointButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  searchButtonDisabled: {
+  findMidpointButtonDisabled: {
     opacity: 0.5,
+  },
+  findMidpointButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
   },
 });

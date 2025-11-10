@@ -15,6 +15,7 @@ import * as Contacts from "expo-contacts";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/Avatar";
 import { selectionHaptic } from "../utils/haptics";
 import { Friend } from "../utils/types";
+import { colors, colorOpacity } from "../constants/theme";
 
 interface FriendCarouselProps {
   onFriendsChange: (friends: Friend[]) => void;
@@ -160,52 +161,46 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
 
   const renderFriend = ({ item: friend }: { item: Friend }) => {
     const isSelected = selectedFriends.has(friend.id);
+    // Get first letter of first name (or first letter of name if no space)
+    const firstInitial = friend.name.trim()[0]?.toUpperCase() || '?';
 
     return (
       <Pressable
         onPress={() => toggleFriend(friend)}
-        className="items-center w-20"
-        style={({ pressed }) => ({
-          opacity: pressed ? 0.8 : 1,
-        })}
+        style={({ pressed }) => [
+          styles.friendItem,
+          { opacity: pressed ? 0.8 : 1 },
+        ]}
       >
-        <View className="relative">
-          <Avatar
-            className={`w-16 h-16 transition-all duration-200 ${
-              isSelected
-                ? "ring-4 ring-secondary shadow-lg scale-105"
-                : "ring-2 ring-border"
-            }`}
+        <View style={styles.friendAvatarContainer}>
+          <View
+            style={[
+              styles.friendAvatar,
+              isSelected && styles.friendAvatarSelected,
+            ]}
           >
-            <AvatarImage src={friend.avatar} alt={friend.name} />
-            <AvatarFallback
-              className={`transition-colors ${
-                isSelected
-                  ? "bg-secondary text-secondary-foreground"
-                  : "bg-muted"
-              }`}
-            >
-              <Text className="text-sm font-medium">
-                {friend.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)}
-              </Text>
-            </AvatarFallback>
-          </Avatar>
+            {friend.avatar ? (
+              <Avatar className="w-16 h-16" style={styles.friendAvatarInner}>
+                <AvatarImage src={friend.avatar} alt={friend.name} />
+                <AvatarFallback style={styles.friendAvatarFallback}>
+                  <Text style={styles.friendAvatarText}>{firstInitial}</Text>
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <Text style={styles.friendAvatarText}>{firstInitial}</Text>
+            )}
+          </View>
           {isSelected && (
-            <View className="absolute -top-1 -right-1 w-6 h-6 bg-secondary rounded-full items-center justify-center shadow-lg">
-              <Text className="text-xs text-secondary-foreground font-bold">
-                ✓
-              </Text>
+            <View style={styles.selectedBadge}>
+              <Text style={styles.selectedBadgeText}>✓</Text>
             </View>
           )}
         </View>
         <Text
-          className={`text-sm text-center mt-2 transition-colors ${
-            isSelected ? "text-secondary" : "text-foreground"
-          }`}
+          style={[
+            styles.friendName,
+            isSelected && styles.friendNameSelected,
+          ]}
           numberOfLines={1}
         >
           {friend.name}
@@ -217,15 +212,15 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
   const renderAddButton = () => (
     <Pressable
       onPress={() => setIsAddOpen(true)}
-      className="items-center w-20"
-      style={({ pressed }) => ({
-        opacity: pressed ? 0.8 : 1,
-      })}
+      style={({ pressed }) => [
+        styles.friendItem,
+        { opacity: pressed ? 0.8 : 1 },
+      ]}
     >
-      <View className="w-16 h-16 rounded-full border-2 border-dashed border-secondary bg-secondary/5 items-center justify-center">
-        <UserPlus size={24} color="#2563eb" />
+      <View style={styles.addButtonAvatar}>
+        <UserPlus size={24} color={colors.secondary} />
       </View>
-      <Text className="text-sm text-center text-secondary mt-2">Add</Text>
+      <Text style={styles.addButtonText}>Add</Text>
     </Pressable>
   );
 
@@ -250,7 +245,6 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
-        ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
       />
       {/* Add Friend Modal */}
       <Modal
@@ -274,13 +268,13 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
                 }}
                 style={styles.closeButton}
               >
-                <X size={24} color="#111827" />
+                <X size={24} color={colors.icon.foreground} />
               </Pressable>
             </View>
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
-              <Search size={20} color="#64748b" style={styles.searchIcon} />
+              <Search size={20} color={colors.icon.muted} style={styles.searchIcon} />
               <TextInput
                 placeholder="Search contacts..."
                 value={contactsSearchQuery}
@@ -294,7 +288,7 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
                   onPress={() => setContactsSearchQuery("")}
                   style={styles.clearSearchButton}
                 >
-                  <X size={16} color="#64748b" />
+                  <X size={16} color={colors.icon.muted} />
                 </Pressable>
               )}
             </View>
@@ -302,7 +296,7 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
             {/* Contacts List */}
             {isLoadingContacts ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color={colors.secondary} />
                 <Text style={styles.loadingText}>Loading contacts...</Text>
               </View>
             ) : contactsPermissionGranted && filteredContacts.length > 0 ? (
@@ -428,14 +422,100 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#2563eb",
+    color: colors.primary,
   },
   selectedCount: {
     fontSize: 14,
-    color: "#64748b",
+    color: colors.mutedForeground,
   },
   listContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
+  },
+  friendItem: {
+    alignItems: "center",
+    width: 80,
+    marginRight: 16,
+  },
+  friendAvatarContainer: {
+    position: "relative",
+    marginBottom: 8,
+  },
+  friendAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colorOpacity.primary['30'],
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+    overflow: "hidden",
+  },
+  friendAvatarSelected: {
+    borderColor: colors.secondary,
+    borderWidth: 3,
+  },
+  friendAvatarInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  friendAvatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colorOpacity.primary['30'],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  friendAvatarText: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  selectedBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.card,
+  },
+  selectedBadgeText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: colors.white,
+  },
+  friendName: {
+    fontSize: 14,
+    color: colors.foreground,
+    textAlign: "center",
+  },
+  friendNameSelected: {
+    color: colors.secondary,
+    fontWeight: "500",
+  },
+  addButtonAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: colors.secondary,
+    backgroundColor: colorOpacity.secondary['10'],
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  addButtonText: {
+    fontSize: 14,
+    color: colors.secondary,
+    textAlign: "center",
   },
   modalOverlay: {
     flex: 1,
@@ -448,7 +528,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 360,
     maxHeight: "90%",
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
   },
@@ -456,14 +536,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 12,
+    color: colors.foreground,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12,
+    backgroundColor: colors.inputBackground,
+    color: colors.foreground,
   },
   modalActions: {
     flexDirection: "row",
@@ -477,19 +560,19 @@ const styles = StyleSheet.create({
   },
   buttonOutline: {
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: colors.border,
   },
   buttonOutlineText: {
-    color: "#111827",
+    color: colors.foreground,
   },
   buttonPrimary: {
-    backgroundColor: "#2563eb",
+    backgroundColor: colors.secondary,
   },
   buttonDisabled: {
-    backgroundColor: "#93c5fd",
+    backgroundColor: colorOpacity.secondary['50'],
   },
   buttonPrimaryText: {
-    color: "#fff",
+    color: colors.white,
     fontWeight: "600",
   },
   modalHeader: {
@@ -505,11 +588,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     marginBottom: 16,
-    backgroundColor: "#f9fafb",
+    backgroundColor: colors.inputBackground,
   },
   searchIcon: {
     marginRight: 8,
@@ -518,6 +601,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontSize: 16,
+    color: colors.foreground,
   },
   clearSearchButton: {
     padding: 4,
@@ -529,7 +613,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: "#64748b",
+    color: colors.mutedForeground,
     fontSize: 14,
   },
   contactsListContainer: {
@@ -545,7 +629,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+    borderBottomColor: colors.muted,
   },
   contactInfo: {
     marginLeft: 12,
@@ -554,17 +638,17 @@ const styles = StyleSheet.create({
   contactName: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#111827",
+    color: colors.foreground,
     marginBottom: 2,
   },
   contactPhone: {
     fontSize: 14,
-    color: "#64748b",
+    color: colors.mutedForeground,
   },
   contactAvatarText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#2563eb",
+    color: colors.secondary,
   },
   emptyContainer: {
     alignItems: "center",
@@ -572,7 +656,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyText: {
-    color: "#64748b",
+    color: colors.mutedForeground,
     fontSize: 14,
   },
   permissionContainer: {
@@ -581,7 +665,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   permissionText: {
-    color: "#64748b",
+    color: colors.mutedForeground,
     fontSize: 14,
     textAlign: "center",
     marginBottom: 16,
@@ -591,14 +675,14 @@ const styles = StyleSheet.create({
   },
   manualAddSection: {
     borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
+    borderTopColor: colors.border,
     paddingTop: 16,
     marginTop: 8,
   },
   manualAddLabel: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#374151",
+    color: colors.foreground,
     marginBottom: 8,
   },
 });

@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   View,
   Text,
   ScrollView,
-  FlatList,
   Pressable,
-  Image,
-  ActivityIndicator,
+  StyleSheet,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   ArrowLeft,
@@ -18,288 +17,488 @@ import {
   Users,
   Share2,
   Navigation,
-  ImageIcon,
-  AlertCircle,
-  Loader2,
 } from "lucide-react-native";
-import { Button } from "../components/ui/Button";
-import { Card, CardContent } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
 import { Avatar, AvatarFallback } from "../components/ui/Avatar";
-import { Place, MidpointResponse, PlaceDetails } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
+import { colors, colorOpacity } from "../constants/theme";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
+
+// Mock restaurant data
+const mockRestaurants = [
+  {
+    id: "1",
+    name: "The Garden Bistro",
+    rating: 4.5,
+    distance: "0.2 mi",
+    goingCount: 3,
+    address: "123 Main St",
+    peopleGoing: ["A", "B", "C"],
+  },
+  {
+    id: "2",
+    name: "Midtown Grill",
+    rating: 4.7,
+    distance: "0.3 mi",
+    goingCount: 5,
+    address: "456 Center Ave",
+    peopleGoing: [],
+  },
+  {
+    id: "3",
+    name: "Café Central",
+    rating: 4.3,
+    distance: "0.4 mi",
+    goingCount: 2,
+    address: "789 Park Blvd",
+    peopleGoing: ["D", "E"],
+  },
+];
 
 export default function MidpointMapPage() {
-  const { activity, midpointData } = useLocalSearchParams<{
-    activity: string;
-    midpointData?: string;
-  }>();
-
-  const [data, setData] = useState<MidpointResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (midpointData) {
-      try {
-        const parsedData = JSON.parse(midpointData);
-        setData(parsedData);
-        console.log("✅ Received midpoint data:", parsedData);
-      } catch (error) {
-        console.error("Error parsing midpoint data:", error);
-        setError("Invalid data received");
-      }
-    } else {
-      setError("No midpoint data provided");
-    }
-  }, [midpointData]);
-
   const handleShare = () => {
     successHaptic();
     router.push("/poll");
   };
 
-  const renderPlace = ({ item: place }: { item: PlaceDetails }) => (
-    <Card className="overflow-hidden border-secondary/20 mb-3">
-      <CardContent className="p-4">
-        {/* Place Header */}
-        <View className="flex-row justify-between items-start mb-3">
-          <View className="flex-1">
-            <Text className="text-lg font-semibold text-foreground mb-1">
-              {place.name}
-            </Text>
-            <View className="flex-row items-center gap-2">
-              {place.rating && (
-                <View className="flex-row items-center gap-1">
-                  <Star size={14} color="#fbbf24" fill="#fbbf24" />
-                  <Text className="text-sm font-medium">{place.rating}</Text>
-                </View>
-              )}
-              {place.priceLevel && (
-                <Text className="text-sm text-muted-foreground">
-                  {place.priceLevel}
-                </Text>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Address */}
-        <View className="flex-row items-start gap-2 mb-3">
-          <MapPin size={16} color="#64748b" className="mt-0.5" />
-          <Text className="text-sm text-muted-foreground flex-1">
-            {place.address}
-          </Text>
-        </View>
-
-        {/* Distance */}
-        {place.distance && (
-          <View className="flex-row items-center gap-2 mb-3">
-            <Navigation size={16} color="#64748b" />
-            <Text className="text-sm text-muted-foreground">
-              {place.distance} away
-            </Text>
-          </View>
-        )}
-
-        {/* Travel Times */}
-        {place.travelSummaries && place.travelSummaries.length > 0 && (
-          <View className="mb-3">
-            <Text className="text-sm font-medium text-foreground mb-2">
-              Travel Times:
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {place.travelSummaries.map((summary, index) => (
-                <Badge key={index} variant="secondary" className="px-2 py-1">
-                  <Text className="text-xs">
-                    {summary.mode}: {summary.duration}
-                  </Text>
-                </Badge>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Photos */}
-        {place.photos && place.photos.length > 0 && (
-          <View className="mb-3">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View className="flex-row gap-2">
-                {place.photos.slice(0, 3).map((photo, index) => (
-                  <View
-                    key={index}
-                    className="w-20 h-20 bg-secondary/20 rounded-lg overflow-hidden"
-                  >
-                    {photo.url ? (
-                      <Image
-                        source={{ uri: photo.url }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View className="w-full h-full items-center justify-center">
-                        <ImageIcon size={24} color="#64748b" />
-                      </View>
-                    )}
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Action Button */}
-        <Button
-          onPress={() => {
-            successHaptic();
-            // TODO: Add navigation to place details or directions
-          }}
-          className="w-full"
-        >
-          <Text className="text-white font-medium">View Details</Text>
-        </Button>
-      </CardContent>
-    </Card>
-  );
-
-  // Loading state
-  if (loading) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#667eea" />
-          <Text className="text-lg font-medium mt-4 text-foreground">
-            Finding your perfect midpoint...
-          </Text>
-          <Text className="text-sm text-muted-foreground mt-2 text-center px-8">
-            Calculating the best location and searching for nearby places
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Error state
-  if (error || !data) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center px-6">
-          <AlertCircle size={64} color="#ef4444" />
-          <Text className="text-xl font-semibold mt-4 text-foreground text-center">
-            Oops! Something went wrong
-          </Text>
-          <Text className="text-sm text-muted-foreground mt-2 text-center">
-            {error || "No midpoint data available"}
-          </Text>
-          <Button onPress={() => router.back()} className="mt-6">
-            <Text className="text-white font-medium">Go Back</Text>
-          </Button>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <LinearGradient colors={["#667eea", "#764ba2"]} className="px-6 py-4">
-          <View className="flex-row items-center justify-between">
-            <Pressable
-              onPress={() => router.back()}
-              className="p-2 rounded-full bg-white/20"
-            >
-              <ArrowLeft size={20} color="white" />
-            </Pressable>
-            <Text className="text-white text-lg font-semibold">
-              Midpoint Found!
-            </Text>
-            <Pressable
-              onPress={handleShare}
-              className="p-2 rounded-full bg-white/20"
-            >
-              <Share2 size={20} color="white" />
-            </Pressable>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Header Section with Gradient */}
+        <LinearGradient
+          colors={colors.gradients.header}
+          style={styles.headerSection}
+        >
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <ArrowLeft size={24} color={colors.icon.white} />
+          </Pressable>
+
+          <View style={styles.headerContent}>
+            <View style={styles.iconContainer}>
+              <MapPin size={28} color={colors.icon.white} strokeWidth={2} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Midpoint Found</Text>
+              <Text style={styles.headerSubtitle}>
+                Central location results
+              </Text>
+            </View>
           </View>
         </LinearGradient>
 
-        {/* Midpoint Info */}
-        <View className="px-6 py-4 bg-white">
-          <View className="flex-row items-center gap-3 mb-3">
-            <View className="w-12 h-12 bg-primary/10 rounded-full items-center justify-center">
-              <MapPin size={24} color="#667eea" />
+        {/* Body Section */}
+        <ScrollView
+          style={styles.bodySection}
+          contentContainerStyle={styles.bodyScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Map Visualization Card */}
+          <View style={styles.mapCard}>
+            {/* People Nearby Badge */}
+            <View style={styles.peopleBadge}>
+              <Users size={14} color={colors.icon.white} />
+              <Text style={styles.peopleBadgeText}>10 people nearby</Text>
             </View>
-            <View className="flex-1">
-              <Text className="text-lg font-semibold">Midpoint Location</Text>
-              <Text className="text-muted-foreground">
-                Perfect spot for {activity}
-              </Text>
+
+            {/* Map Grid Background */}
+            <View style={styles.mapGrid}>
+              {/* Central Marker */}
+              <View style={styles.centralMarker}>
+                <LinearGradient
+                  colors={colors.gradients.header}
+                  style={styles.centralMarkerGradient}
+                >
+                  <MapPin size={20} color={colors.icon.white} fill={colors.icon.white} />
+                </LinearGradient>
+              </View>
+
+              {/* Nearby Markers */}
+              <View style={[styles.nearbyMarker, styles.marker1]}>
+                <View style={styles.nearbyMarkerCircle}>
+                  <Star size={12} color={colors.icon.white} fill={colors.icon.white} />
+                </View>
+              </View>
+              <View style={[styles.nearbyMarker, styles.marker2]}>
+                <View style={styles.nearbyMarkerCircle}>
+                  <Star size={12} color={colors.icon.white} fill={colors.icon.white} />
+                </View>
+              </View>
+              <View style={[styles.nearbyMarker, styles.marker3]}>
+                <View style={styles.nearbyMarkerCircle}>
+                  <Star size={12} color={colors.icon.white} fill={colors.icon.white} />
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* Midpoint Address */}
-          <View className="mb-3">
-            <Text className="text-sm font-medium text-foreground mb-1">
-              Address:
-            </Text>
-            <Text className="text-muted-foreground">
-              {data.midpointAddress || "Calculated midpoint location"}
-            </Text>
-          </View>
+          {/* Nearby Restaurants Section */}
+          <View style={styles.restaurantsSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Nearby Restaurants</Text>
+              <View style={styles.placesBadge}>
+                <Text style={styles.placesBadgeText}>{mockRestaurants.length} places</Text>
+              </View>
+            </View>
 
-          {/* Search Radius */}
-          <View className="mb-3">
-            <Text className="text-sm font-medium text-foreground mb-1">
-              Search Radius:
-            </Text>
-            <Text className="text-muted-foreground">
-              Within {data.searchRadiusMiles?.toFixed(1) || "5.0"} miles
-            </Text>
-          </View>
+            {/* Restaurant Cards */}
+            {mockRestaurants.map((restaurant) => (
+              <View key={restaurant.id} style={styles.restaurantCard}>
+                {/* Restaurant Header */}
+                <View style={styles.restaurantHeader}>
+                  <Text style={styles.restaurantName}>{restaurant.name}</Text>
+                  <View style={styles.ratingContainer}>
+                    <Star size={16} color={colors.primary} fill={colors.primary} />
+                    <Text style={styles.ratingText}>{restaurant.rating}</Text>
+                  </View>
+                </View>
 
-          <Text className="text-muted-foreground">
-            We found the ideal meeting point based on everyone's locations. Here
-            are some great options nearby:
-          </Text>
+                {/* Restaurant Details */}
+                <View style={styles.restaurantDetails}>
+                  <View style={styles.detailRow}>
+                    <Navigation size={16} color={colors.icon.muted} />
+                    <Text style={styles.detailText}>{restaurant.distance}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Users size={16} color={colors.icon.muted} />
+                    <Text style={styles.detailText}>{restaurant.goingCount} going</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <MapPin size={16} color={colors.icon.muted} />
+                    <Text style={styles.detailText}>{restaurant.address}</Text>
+                  </View>
+                </View>
+
+                {/* People Going */}
+                {restaurant.peopleGoing.length > 0 && (
+                  <View style={styles.peopleGoingContainer}>
+                    <View style={styles.peopleAvatars}>
+                      {restaurant.peopleGoing.map((initial, index) => (
+                        <View key={index} style={styles.avatarCircle}>
+                          <Text style={styles.avatarText}>{initial}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text style={styles.peopleGoingText}>
+                      {restaurant.peopleGoing.length} people are also going here
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Share Button */}
+        <View style={styles.shareButtonContainer}>
+          <Pressable
+            onPress={handleShare}
+            style={({ pressed }) => [
+              styles.shareButton,
+              { opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <Share2 size={20} color={colors.icon.white} />
+            <Text style={styles.shareButtonText}>Share Midpoint with Group</Text>
+          </Pressable>
         </View>
-
-        {/* Places List */}
-        <View className="px-6 py-4">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-lg font-semibold">
-              Nearby {activity.charAt(0).toUpperCase() + activity.slice(1)}
-            </Text>
-            <Badge variant="secondary">
-              <Text className="text-xs">{data.places?.length || 0} found</Text>
-            </Badge>
-          </View>
-
-          {data.places && data.places.length > 0 ? (
-            <FlatList
-              data={data.places}
-              renderItem={renderPlace}
-              keyExtractor={(item) => item.placeId}
-              scrollEnabled={false}
-              nestedScrollEnabled={true}
-            />
-          ) : (
-            <View className="items-center py-8">
-              <MapPin size={48} color="#64748b" />
-              <Text className="text-lg font-medium mt-4 text-foreground">
-                No places found
-              </Text>
-              <Text className="text-sm text-muted-foreground mt-2 text-center">
-                Try expanding your search radius or selecting a different
-                activity type
-              </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.card,
+  },
+  content: {
+    flex: 1,
+  },
+  headerSection: {
+    paddingTop: 16,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    height: HEADER_HEIGHT,
+    minHeight: 180,
+    maxHeight: 220,
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colorOpacity.white['20'],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colorOpacity.white['80'],
+    fontWeight: '400',
+  },
+  bodySection: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  bodyScrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 100,
+  },
+  mapCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 24,
+    height: 200,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  peopleBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: colors.secondary,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    zIndex: 10,
+  },
+  peopleBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.white,
+  },
+  mapGrid: {
+    flex: 1,
+    backgroundColor: colorOpacity.secondary['10'],
+    borderRadius: 8,
+    position: 'relative',
+    // Create a grid pattern effect with borders
+    borderWidth: 1,
+    borderColor: colorOpacity.secondary['20'],
+  },
+  centralMarker: {
+    position: 'absolute',
+    top: '40%',
+    left: '45%',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    zIndex: 5,
+  },
+  centralMarkerGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  nearbyMarker: {
+    position: 'absolute',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    zIndex: 4,
+  },
+  marker1: {
+    top: '25%',
+    left: '35%',
+  },
+  marker2: {
+    top: '55%',
+    left: '30%',
+  },
+  marker3: {
+    top: '35%',
+    right: '25%',
+  },
+  nearbyMarkerCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  restaurantsSection: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.foreground,
+  },
+  placesBadge: {
+    backgroundColor: colors.secondary,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  placesBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.white,
+  },
+  restaurantCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  restaurantHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  restaurantName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.foreground,
+    flex: 1,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 12,
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.foreground,
+  },
+  restaurantDetails: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+  },
+  peopleGoingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  peopleAvatars: {
+    flexDirection: 'row',
+    gap: -8,
+  },
+  avatarCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.card,
+  },
+  avatarText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.foreground,
+  },
+  peopleGoingText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    flex: 1,
+  },
+  shareButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    paddingTop: 12,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  shareButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  shareButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
+  },
+});
