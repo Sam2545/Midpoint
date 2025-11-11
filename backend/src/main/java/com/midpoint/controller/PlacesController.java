@@ -50,8 +50,19 @@ public class PlacesController {
 
     @PostMapping("/midpoint")
     public Mono<ResponseEntity<MidpointResponse>> findMidpoint(@RequestBody MidpointRequest request) {
+        System.out.println("\n🌐 [CONTROLLER] Received midpoint request");
+        System.out.println("  📍 Coordinates: " + request.getCoords().size());
+        System.out.println("  🔍 Filters: " + request.getFilters());
+        
         return midpointService.findMidpointAndPlaces(request)
-                .map(ResponseEntity::ok)
+                .map(response -> {
+                    System.out.println("✅ [CONTROLLER] Returning midpoint response with " + response.getPlaces().size() + " places");
+                    return ResponseEntity.ok(response);
+                })
+                .doOnError(error -> {
+                    System.err.println("❌ [CONTROLLER] Error processing midpoint request: " + error.getMessage());
+                    error.printStackTrace();
+                })
                 .onErrorReturn(ResponseEntity.badRequest().build());
     }
 

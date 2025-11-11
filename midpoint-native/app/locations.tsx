@@ -24,6 +24,8 @@ import { LocationInputWithAutocomplete } from "../components/LocationInputWithAu
 import { Friend, LocationEntry } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
 import { colors, colorOpacity } from "../constants/theme";
+import PlacesService from "../services/PlacesService";
+import { getApiBaseUrl } from "../utils/network";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -63,29 +65,26 @@ export default function LocationsPage() {
   };
 
   const handlePlaceSelect = async (id: string, place: any) => {
-    // COMMENTED OUT: Google Maps API call - not working right now
-    // try {
-    //   // Get coordinates from place details
-    //   const response = await fetch(
-    //     `http://localhost:8080/api/places/details?placeId=${place.place_id}`
-    //   );
-    //   if (response.ok) {
-    //     const placeDetails = await response.json();
-    //     const coords = {
-    //       lat: placeDetails.geometry.location.lat,
-    //       lng: placeDetails.geometry.location.lng,
-    //     };
+    try {
+      console.log(`📍 Getting place details for ${id}:`, place.place_id);
+      // Get coordinates from place details
+      const placeDetails = await PlacesService.getPlaceDetails(place.place_id);
+      if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+        const coords = {
+          lat: placeDetails.geometry.location.lat,
+          lng: placeDetails.geometry.location.lng,
+        };
 
-    //     setCoordinates((prev) => ({
-    //       ...prev,
-    //       [id]: coords,
-    //     }));
+        setCoordinates((prev) => ({
+          ...prev,
+          [id]: coords,
+        }));
 
-    //     console.log(`📍 Coordinates for ${id}:`, coords);
-    //   }
-    // } catch (error) {
-    //   console.error("Error getting place coordinates:", error);
-    // }
+        console.log(`✅ Coordinates for ${id}:`, coords);
+      }
+    } catch (error) {
+      console.error("❌ Error getting place coordinates:", error);
+    }
   };
 
   const addMoreLocation = () => {
@@ -106,83 +105,86 @@ export default function LocationsPage() {
   };
 
   const handleSearch = async () => {
-    console.log("Button pressed!");
-    console.log("isValid:", isValid);
-    console.log("locations:", locations);
-    console.log("coordinates:", coordinates);
+    console.log("🔍 Find Midpoint button pressed!");
+    console.log("  isValid:", isValid);
+    console.log("  locations:", locations);
+    console.log("  coordinates:", coordinates);
 
     try {
       successHaptic();
 
-      // COMMENTED OUT: Google Maps API call - not working right now
-      // // Get coordinates for all locations
-      // const coordsArray = locations
-      //   .filter((loc) => coordinates[loc.id])
-      //   .map((loc) => coordinates[loc.id]);
+      // Get coordinates for all locations
+      const coordsArray = locations
+        .filter((loc) => coordinates[loc.id])
+        .map((loc) => ({
+          lat: coordinates[loc.id].lat,
+          lng: coordinates[loc.id].lng,
+        }));
 
-      // if (coordsArray.length < 2) {
-      //   alert("Please select valid locations for at least 2 people");
-      //   return;
-      // }
+      console.log("  📍 Coordinates array:", coordsArray);
 
-      // // Convert activity to filters
-      // const getActivityFilters = (activityType: string): string[] => {
-      //   switch (activityType) {
-      //     case "restaurants":
-      //       return ["restaurant"];
-      //     case "cafes":
-      //       return ["cafe"];
-      //     case "shopping":
-      //       return ["shopping_mall", "store"];
-      //     case "entertainment":
-      //       return ["movie_theater", "amusement_park", "zoo"];
-      //     default:
-      //       return ["restaurant", "cafe"];
-      //   }
-      // };
+      if (coordsArray.length < 2) {
+        alert("Please select valid locations for at least 2 people");
+        return;
+      }
 
-      // // Call backend API
-      // const request = {
-      //   coords: coordsArray,
-      //   filters: getActivityFilters(activity),
-      // };
+      // Convert activity to filters
+      const getActivityFilters = (activityType: string): string[] => {
+        switch (activityType) {
+          case "restaurants":
+            return ["restaurant"];
+          case "cafes":
+            return ["cafe"];
+          case "shopping":
+            return ["shopping_mall", "store"];
+          case "entertainment":
+            return ["movie_theater", "amusement_park", "zoo"];
+          default:
+            return ["restaurant", "cafe"];
+        }
+      };
 
-      // console.log("🎯 Calling midpoint API:", request);
+      // Call backend API
+      const request = {
+        coords: coordsArray,
+        filters: getActivityFilters(activity),
+      };
 
-      // const response = await fetch(
-      //   "http://localhost:8080/api/places/midpoint",
-      //   {
-      //     method: "POST",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //     },
-      //     body: JSON.stringify(request),
-      //   }
-      // );
+      console.log("🎯 Calling midpoint API:", request);
+      const apiBaseUrl = getApiBaseUrl().replace("/api/places", "");
+      const endpoint = `${apiBaseUrl}/api/places/midpoint`;
+      console.log("  🔗 Endpoint:", endpoint);
 
-      // if (response.ok) {
-      //   const data = await response.json();
-      //   console.log("✅ Midpoint data received:", data);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      });
 
-      //   // Navigate to map page with the data
-      //   router.push({
-      //     pathname: "/map",
-      //     params: {
-      //       activity: activity,
-      //       midpointData: JSON.stringify(data),
-      //     },
-      //   });
-      // } else {
-      //   console.error("❌ API call failed:", response.status);
-      //   alert("Failed to find midpoint. Please try again.");
-      // }
+      console.log("  📊 Response status:", response.status);
 
-      // Navigate to map page directly (API calls commented out)
-      // Static UI will be shown - no data required
-      router.push("/map");
+      if (response.ok) {
+        const data = await response.json();
+        console.log("✅ Midpoint data received:", data);
+
+        // Navigate to map page with the data
+        router.push({
+          pathname: "/map",
+          params: {
+            activity: activity,
+            midpointData: JSON.stringify(data),
+          },
+        });
+      } else {
+        const errorText = await response.text();
+        console.error("❌ API call failed:", response.status, errorText);
+        alert("Failed to find midpoint. Please try again.");
+      }
     } catch (error) {
-      console.error("Navigation error:", error);
-      alert("Error navigating to map page.");
+      console.error("❌ Error in handleSearch:", error);
+      alert("Error finding midpoint. Please check your connection.");
     }
   };
 
