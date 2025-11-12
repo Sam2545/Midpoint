@@ -3,8 +3,8 @@ import {
   View,
   Text,
   TextInput,
-  FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
@@ -121,14 +121,14 @@ export const LocationInputWithAutocomplete: React.FC<
 
       {showSuggestions && suggestions.length > 0 && (
         <View style={styles.suggestionsContainer}>
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestion}
-            keyExtractor={(item) => item.place_id}
+          <ScrollView
             style={styles.suggestionsList}
-            showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-          />
+          >
+            {suggestions.map((item) => (
+              <View key={item.place_id}>{renderSuggestion({ item })}</View>
+            ))}
+          </ScrollView>
         </View>
       )}
 
