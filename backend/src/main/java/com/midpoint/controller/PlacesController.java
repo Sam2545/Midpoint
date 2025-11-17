@@ -3,6 +3,8 @@ package com.midpoint.controller;
 import com.midpoint.dto.*;
 import com.midpoint.service.GoogleMapsService;
 import com.midpoint.service.MidpointService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,8 @@ import java.util.UUID;
 @RequestMapping("/api/places")
 @CrossOrigin(origins = "*")
 public class PlacesController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlacesController.class);
 
     @Autowired
     private GoogleMapsService googleMapsService;
@@ -50,8 +54,18 @@ public class PlacesController {
 
     @PostMapping("/midpoint")
     public Mono<ResponseEntity<MidpointResponse>> findMidpoint(@RequestBody MidpointRequest request) {
+        LOGGER.info("🌐 [CONTROLLER] Received midpoint request with {} coordinates and {} filters",
+                request.getCoords() != null ? request.getCoords().size() : 0,
+                request.getFilters() != null ? request.getFilters().size() : 0);
+        
         return midpointService.findMidpointAndPlaces(request)
-                .map(ResponseEntity::ok)
+                .map(response -> {
+                    LOGGER.info("✅ [CONTROLLER] Returning midpoint response with {} places", response.getPlaces().size());
+                    return ResponseEntity.ok(response);
+                })
+                .doOnError(error -> {
+                    LOGGER.error("❌ [CONTROLLER] Error processing midpoint request", error);
+                })
                 .onErrorReturn(ResponseEntity.badRequest().build());
     }
 

@@ -26,7 +26,7 @@ jobs:
 
       - name: Build & test
         working-directory: ./backend # ADDED THIS
-        run: mvn -B clean verify
+        run: mvn -B -P enable-byte-buddy-agent clean verify
 
       - name: SonarCloud analysis
         working-directory: ./backend # ADDED THIS
@@ -34,7 +34,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ADDED THIS
         run: |
-          mvn -B sonar:sonar \
+          mvn -B -P enable-byte-buddy-agent sonar:sonar \
             -Dsonar.projectKey=Sam2545_Midpoint \
             -Dsonar.organization=sam2545 \
             -Dsonar.host.url=https://sonarcloud.io

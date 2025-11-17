@@ -3,6 +3,8 @@ package com.midpoint.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.midpoint.dto.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -13,6 +15,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class MidpointService {
+    
+    private static final Logger LOGGER = LoggerFactory.getLogger(MidpointService.class);
+    private static final String ORIGIN_LABEL = "    Origin ";
     
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -182,7 +187,7 @@ public class MidpointService {
                             return root.get("results").get(0).get("formatted_address").asText();
                         }
                     } catch (Exception e) {
-                        System.err.println("Error parsing reverse geocoding response: " + e.getMessage());
+                        LOGGER.error("Error parsing reverse geocoding response", e);
                     }
                     return String.format("%.4f°, %.4f°", coordinates.getLat(), coordinates.getLng());
                 })
@@ -297,8 +302,29 @@ public class MidpointService {
      */
     public Mono<List<Place>> computeTravelSummaries(List<Coordinates> origins, List<Place> places, String mode) {
         if (places.isEmpty() || origins.isEmpty()) {
+            LOGGER.warn("⚠️  [ISOCHRONE] Skipping travel summaries - empty origins or places");
             return Mono.just(places);
         }
+
+        LOGGER.info("🔍 [ISOCHRONE] Computing travel summaries");
+        LOGGER.info("  📍 Origins: {}", origins.size());
+        for (int i = 0; i < origins.size(); i++) {
+            Coordinates origin = origins.get(i);
+            LOGGER.info("{}{}: ({}, {})", ORIGIN_LABEL, i, origin.getLat(), origin.getLng());
+        }
+        LOGGER.info("  🎯 Destinations: {}", places.size());
+        for (int i = 0; i < Math.min(places.size(), 5); i++) {
+            Place place = places.get(i);
+            LOGGER.info("    Place {}: {} at ({}, {})",
+                    i,
+                    place.getName(),
+                    place.getCoordinates().getLat(),
+                    place.getCoordinates().getLng());
+        }
+        if (places.size() > 5) {
+            LOGGER.info("    ... and {} more places", places.size() - 5);
+        }
+        LOGGER.info("  🚗 Mode: {}", mode);
 
         // Build request parameters
         String originsParam = origins.stream()
@@ -312,6 +338,8 @@ public class MidpointService {
         String url = String.format("%s?origins=%s&destinations=%s&mode=%s&key=%s",
                 DISTANCE_MATRIX_URL, originsParam, destinationsParam, mode, apiKey);
 
+        LOGGER.info("  🔗 Distance Matrix API URL: {}", url.replace(apiKey, "***"));
+
         return webClient.get()
                 .uri(url)
                 .retrieve()
@@ -319,17 +347,25 @@ public class MidpointService {
                 .map(response -> {
                     try {
                         JsonNode root = objectMapper.readTree(response);
-                        if (!"OK".equals(root.get("status").asText()) || !root.has("rows")) {
+                        String apiStatus = root.has("status") ? root.get("status").asText() : "UNKNOWN";
+                        LOGGER.info("  📊 API Response Status: {}", apiStatus);
+                        
+                        if (!"OK".equals(apiStatus) || !root.has("rows")) {
+                            LOGGER.error("  ❌ [ISOCHRONE] API error or no rows - status: {}", apiStatus);
                             return places;
                         }
 
                         List<Place> enhanced = new ArrayList<>();
                         JsonNode rows = root.get("rows");
 
+                        LOGGER.info("  ✅ Processing {} origin rows and {} destinations", rows.size(), places.size());
+
                         for (int i = 0; i < places.size(); i++) {
                             Place place = places.get(i);
                             List<Place.TravelSummary> travelSummaries = new ArrayList<>();
 
+                            LOGGER.info("  📍 Place: {}", place.getName());
+                            
                             for (int j = 0; j < origins.size(); j++) {
                                 JsonNode row = rows.get(j);
                                 JsonNode elements = row.get("elements");
@@ -337,20 +373,38 @@ public class MidpointService {
 
                                 String status = element.get("status").asText();
                                 if (!"OK".equals(status)) {
+                                    LOGGER.warn("{}{} → ❌ Status: {}", ORIGIN_LABEL, j, status);
                                     travelSummaries.add(new Place.TravelSummary(j, null, null, null, null, mode));
                                 } else {
                                     Place.TravelSummary summary = new Place.TravelSummary();
                                     summary.setOriginIndex(j);
                                     summary.setMode(mode);
 
+                                    int distanceMeters = 0;
+                                    String distanceText = "";
+                                    int durationSeconds = 0;
+                                    String durationText = "";
+
                                     if (element.has("distance")) {
-                                        summary.setDistanceMeters(element.get("distance").get("value").asInt());
-                                        summary.setDistanceText(element.get("distance").get("text").asText());
+                                        distanceMeters = element.get("distance").get("value").asInt();
+                                        distanceText = element.get("distance").get("text").asText();
+                                        summary.setDistanceMeters(distanceMeters);
+                                        summary.setDistanceText(distanceText);
                                     }
                                     if (element.has("duration")) {
-                                        summary.setDurationSeconds(element.get("duration").get("value").asInt());
-                                        summary.setDurationText(element.get("duration").get("text").asText());
+                                        durationSeconds = element.get("duration").get("value").asInt();
+                                        durationText = element.get("duration").get("text").asText();
+                                        summary.setDurationSeconds(durationSeconds);
+                                        summary.setDurationText(durationText);
                                     }
+
+                                    double durationMinutes = durationSeconds / 60.0;
+                                    LOGGER.info("{}{} → ✅ {} ({} min), {}",
+                                            ORIGIN_LABEL,
+                                            j,
+                                            durationText,
+                                            String.format("%.1f", durationMinutes),
+                                            distanceText);
 
                                     travelSummaries.add(summary);
                                 }
@@ -360,45 +414,68 @@ public class MidpointService {
                             enhanced.add(place);
                         }
 
+                        LOGGER.info("✅ [ISOCHRONE] Travel summaries computed for {} places", enhanced.size());
                         return enhanced;
                     } catch (Exception e) {
-                        System.err.println("Error parsing distance matrix response: " + e.getMessage());
+                        LOGGER.error("❌ [ISOCHRONE] Error parsing distance matrix response", e);
                         return places;
                     }
                 })
-                .onErrorReturn(places);
+                .onErrorReturn(places)
+                .doOnError(error -> {
+                    LOGGER.error("❌ [ISOCHRONE] Error calling Distance Matrix API", error);
+                });
     }
 
     /**
      * Main method to find midpoint and nearby places
      */
     public Mono<MidpointResponse> findMidpointAndPlaces(MidpointRequest request) {
+        int coordCount = request.getCoords() != null ? request.getCoords().size() : 0;
+        int filterCount = request.getFilters() != null ? request.getFilters().size() : 0;
+        LOGGER.info("🎯 [MIDPOINT] Starting midpoint calculation ({} coordinates, {} filters)", coordCount, filterCount);
+
         // Calculate centroid from provided coordinates
         Coordinates initialMidpoint = calculateCentroid(request.getCoords());
+        LOGGER.info("  📐 Initial centroid computed");
 
         // Validate that the midpoint is actually between the input locations; correct if needed
         final Coordinates midpoint = validateAndCorrectMidpoint(initialMidpoint, request.getCoords());
+        boolean wasCorrected = Math.abs(midpoint.getLat() - initialMidpoint.getLat()) > 0.0001 ||
+                               Math.abs(midpoint.getLng() - initialMidpoint.getLng()) > 0.0001;
+        if (wasCorrected) {
+            LOGGER.warn("  ⚠️  Midpoint corrected after validation");
+        } else {
+            LOGGER.info("  ✅ Midpoint validated without correction");
+        }
 
         // Get midpoint address
-        Mono<String> midpointAddressMono = reverseGeocode(midpoint);
+        Mono<String> midpointAddressMono = reverseGeocode(midpoint)
+                .doOnNext(address -> LOGGER.info("  🏠 Midpoint address resolved"));
 
         // Compute dynamic radius from the spread of user locations
         // Fixed 5-mile radius as requested
         int radiusMeters = (int) (5 * 1609.34); // 5 miles in meters
+        LOGGER.info("  📏 Search radius: 5 miles ({} meters)", radiusMeters);
 
         // Search for places near midpoint with dynamic radius
         Mono<List<Place>> placesMono = searchPlaces(midpoint, request.getFilters(), radiusMeters)
+                .doOnNext(places -> LOGGER.info("  🏢 Found {} places near midpoint", places.size()))
                 .flatMap(places -> {
                     // Limit early to reduce Distance Matrix elements
                     List<Place> limitedPlaces = places.stream()
                             .limit(20)
                             .collect(Collectors.toList());
+                    LOGGER.info("  🔢 Limiting to {} places for travel time calculation", limitedPlaces.size());
 
                     // Compute per-origin travel summaries for these places
                     return computeTravelSummaries(request.getCoords(), limitedPlaces, "driving");
                 });
 
         return Mono.zip(midpointAddressMono, placesMono)
-                .map(tuple -> new MidpointResponse(midpoint, tuple.getT1(), tuple.getT2(), radiusMeters));
+                .map(tuple -> {
+                    LOGGER.info("✅ [MIDPOINT] Calculation complete - returning {} places", tuple.getT2().size());
+                    return new MidpointResponse(midpoint, tuple.getT1(), tuple.getT2(), radiusMeters);
+                });
     }
 }
