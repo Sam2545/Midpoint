@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Calendar, MapPin, Clock } from 'lucide-react-native';
+import { ArrowLeft, Calendar, MapPin, Clock, Check } from 'lucide-react-native';
 import { colors, colorOpacity } from '../constants/theme';
+import { successHaptic } from '../utils/haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-// Mock poll data
-const timePollOptions = [
+const USER_NAME = 'Sameer';
+
+// Initial poll data
+const initialTimePollOptions = [
   {
     time: '2:00 PM',
     votes: 3,
@@ -37,7 +40,31 @@ const eventDetails = {
 };
 
 export default function EventDetailPage() {
-  const maxVotes = Math.max(...timePollOptions.map(option => option.votes));
+  const [pollOptions, setPollOptions] = useState(initialTimePollOptions);
+
+  const handleVote = (index: number) => {
+    setPollOptions(prevOptions => {
+      const newOptions = [...prevOptions];
+      const option = { ...newOptions[index] };
+      const hasVoted = option.voters.includes(USER_NAME);
+
+      if (hasVoted) {
+        // Remove vote
+        option.voters = option.voters.filter(voter => voter !== USER_NAME);
+        option.votes = option.votes - 1;
+      } else {
+        // Add vote
+        option.voters = [...option.voters, USER_NAME];
+        option.votes = option.votes + 1;
+      }
+
+      newOptions[index] = option;
+      return newOptions;
+    });
+    successHaptic();
+  };
+
+  const maxVotes = Math.max(...pollOptions.map(option => option.votes), 1);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -121,8 +148,9 @@ export default function EventDetailPage() {
               <Text style={styles.cardTitle}>Time Availability Poll</Text>
             </View>
 
-            {timePollOptions.map((option, index) => {
+            {pollOptions.map((option, index) => {
               const progressPercentage = (option.votes / maxVotes) * 100;
+              const hasVoted = option.voters.includes(USER_NAME);
               
               return (
                 <View key={index} style={styles.pollOption}>
@@ -145,12 +173,42 @@ export default function EventDetailPage() {
                   {option.voters.length > 0 && (
                     <View style={styles.votersContainer}>
                       {option.voters.map((voter, voterIndex) => (
-                        <View key={voterIndex} style={styles.voterTag}>
-                          <Text style={styles.voterTagText}>{voter}</Text>
+                        <View 
+                          key={voterIndex} 
+                          style={[
+                            styles.voterTag,
+                            voter === USER_NAME && styles.voterTagSelf
+                          ]}
+                        >
+                          <Text style={[
+                            styles.voterTagText,
+                            voter === USER_NAME && styles.voterTagTextSelf
+                          ]}>
+                            {voter}
+                          </Text>
                         </View>
                       ))}
                     </View>
                   )}
+
+                  {/* Vote Button */}
+                  <Pressable
+                    onPress={() => handleVote(index)}
+                    style={({ pressed }) => [
+                      styles.voteButton,
+                      hasVoted && styles.voteButtonVoted,
+                      { opacity: pressed ? 0.8 : 1 },
+                    ]}
+                  >
+                    {hasVoted ? (
+                      <>
+                        <Check size={16} color={colors.white} />
+                        <Text style={styles.voteButtonText}>Voted</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.voteButtonText}>Vote</Text>
+                    )}
+                  </Pressable>
                 </View>
               );
             })}
@@ -318,6 +376,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.primary,
+  },
+  voterTagSelf: {
+    backgroundColor: colors.primary,
+  },
+  voterTagTextSelf: {
+    color: colors.white,
+  },
+  voteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: colors.secondary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+  },
+  voteButtonVoted: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  voteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
   },
 });
 

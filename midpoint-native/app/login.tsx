@@ -2,24 +2,53 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPinned, ArrowLeft, User, Lock } from 'lucide-react-native';
+import { MapPinned, ArrowLeft, Mail, Lock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { colors, colorOpacity } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
+// import { AuthService } from '../lib/auth'; // Database integration commented out
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogin = () => {
-    if (username.trim() && password.trim()) {
-      successHaptic();
-      // TODO: Implement actual login logic
-      router.push('/home');
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password');
+      return;
     }
+
+    // Database integration commented out
+    // setLoading(true);
+    // setError('');
+    // try {
+    //   const result = await AuthService.signIn({
+    //     email: email.trim(),
+    //     password: password.trim(),
+    //   });
+    //   if (result.error) {
+    //     setError(result.error.message || 'Login failed. Please try again.');
+    //     return;
+    //   }
+    //   if (result.data) {
+    //     successHaptic();
+    //     router.push('/home');
+    //   }
+    // } catch (err) {
+    //   setError('An unexpected error occurred. Please try again.');
+    //   console.error('Login error:', err);
+    // } finally {
+    //   setLoading(false);
+    // }
+
+    // Simple navigation without database
+    successHaptic();
+    router.push('/home');
   };
 
   const handleForgotPassword = () => {
@@ -33,7 +62,7 @@ export default function LoginScreen() {
     router.push('/create-account');
   };
 
-  const isFormValid = username.trim() !== '' && password.trim() !== '';
+  const isFormValid = email.trim() !== '' && password.trim() !== ''; // && !loading; // Loading state commented out
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,20 +104,32 @@ export default function LoginScreen() {
 
             {/* Body Section - Login Form */}
             <View style={styles.bodySection}>
-              {/* Username Input */}
+              {/* Error Message */}
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              {/* Email Input */}
               <View style={styles.inputGroup}>
                 <View style={styles.labelContainer}>
-                  <User size={18} color={colors.primary} style={styles.labelIcon} />
-                  <Text style={styles.inputLabel}>Username</Text>
+                  <Mail size={18} color={colors.primary} style={styles.labelIcon} />
+                  <Text style={styles.inputLabel}>Email</Text>
                 </View>
                 <TextInput
-                  placeholder="Enter your username"
+                  placeholder="Enter your email"
                   placeholderTextColor={colors.mutedForeground}
-                  value={username}
-                  onChangeText={setUsername}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    setError('');
+                  }}
                   style={styles.input}
                   autoCapitalize="none"
-                  autoComplete="username"
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  // editable={!loading} // Loading state commented out
                 />
               </View>
 
@@ -102,11 +143,15 @@ export default function LoginScreen() {
                   placeholder="Enter your password"
                   placeholderTextColor={colors.mutedForeground}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setError('');
+                  }}
                   style={styles.input}
                   secureTextEntry
                   autoCapitalize="none"
                   autoComplete="password"
+                  // editable={!loading} // Loading state commented out
                 />
                 <Pressable
                   onPress={handleForgotPassword}
@@ -129,7 +174,10 @@ export default function LoginScreen() {
                   { opacity: pressed ? 0.9 : 1 },
                 ]}
               >
-                <Text style={styles.loginButtonText}>Login to Mid</Text>
+                <Text style={styles.loginButtonText}>
+                  {/* {loading ? 'Logging in...' : 'Login to Mid'} */}
+                  Login to Mid
+                </Text>
               </Pressable>
 
               {/* Create Account Link */}
@@ -295,6 +343,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.secondary,
+  },
+  errorContainer: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: colors.destructive,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: colors.destructive,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 
