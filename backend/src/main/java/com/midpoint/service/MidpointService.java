@@ -431,31 +431,27 @@ public class MidpointService {
      * Main method to find midpoint and nearby places
      */
     public Mono<MidpointResponse> findMidpointAndPlaces(MidpointRequest request) {
-        LOGGER.info("🎯 [MIDPOINT] Starting midpoint calculation");
-        LOGGER.info("  📍 Input coordinates: {}", request.getCoords().size());
-        for (int i = 0; i < request.getCoords().size(); i++) {
-            Coordinates coord = request.getCoords().get(i);
-            LOGGER.info("    Coord {}: ({}, {})", i, coord.getLat(), coord.getLng());
-        }
-        LOGGER.info("  🔍 Filters: {}", request.getFilters().isEmpty() ? "none (default)" : request.getFilters());
+        int coordCount = request.getCoords() != null ? request.getCoords().size() : 0;
+        int filterCount = request.getFilters() != null ? request.getFilters().size() : 0;
+        LOGGER.info("🎯 [MIDPOINT] Starting midpoint calculation ({} coordinates, {} filters)", coordCount, filterCount);
 
         // Calculate centroid from provided coordinates
         Coordinates initialMidpoint = calculateCentroid(request.getCoords());
-        LOGGER.info("  📐 Initial centroid: ({}, {})", initialMidpoint.getLat(), initialMidpoint.getLng());
+        LOGGER.info("  📐 Initial centroid computed");
 
         // Validate that the midpoint is actually between the input locations; correct if needed
         final Coordinates midpoint = validateAndCorrectMidpoint(initialMidpoint, request.getCoords());
         boolean wasCorrected = Math.abs(midpoint.getLat() - initialMidpoint.getLat()) > 0.0001 ||
                                Math.abs(midpoint.getLng() - initialMidpoint.getLng()) > 0.0001;
         if (wasCorrected) {
-            LOGGER.warn("  ⚠️  Midpoint corrected: ({}, {})", midpoint.getLat(), midpoint.getLng());
+            LOGGER.warn("  ⚠️  Midpoint corrected after validation");
         } else {
-            LOGGER.info("  ✅ Final midpoint: ({}, {})", midpoint.getLat(), midpoint.getLng());
+            LOGGER.info("  ✅ Midpoint validated without correction");
         }
 
         // Get midpoint address
         Mono<String> midpointAddressMono = reverseGeocode(midpoint)
-                .doOnNext(address -> LOGGER.info("  🏠 Midpoint address: {}", address));
+                .doOnNext(address -> LOGGER.info("  🏠 Midpoint address resolved"));
 
         // Compute dynamic radius from the spread of user locations
         // Fixed 5-mile radius as requested

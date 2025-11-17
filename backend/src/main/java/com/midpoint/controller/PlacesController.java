@@ -54,9 +54,9 @@ public class PlacesController {
 
     @PostMapping("/midpoint")
     public Mono<ResponseEntity<MidpointResponse>> findMidpoint(@RequestBody MidpointRequest request) {
-        LOGGER.info("🌐 [CONTROLLER] Received midpoint request");
-        LOGGER.info("  📍 Coordinates: {}", request.getCoords().size());
-        LOGGER.info("  🔍 Filters: {}", request.getFilters());
+        LOGGER.info("🌐 [CONTROLLER] Received midpoint request with {} coordinates and {} filters",
+                request.getCoords() != null ? request.getCoords().size() : 0,
+                request.getFilters() != null ? request.getFilters().size() : 0);
         
         return midpointService.findMidpointAndPlaces(request)
                 .map(response -> {
