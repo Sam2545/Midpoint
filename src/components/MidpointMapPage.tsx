@@ -1,49 +1,85 @@
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, MapPin, Star, Users, Share2, Navigation } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 
+interface Place {
+  place_id: string;
+  name: string;
+  address: string;
+  rating?: number;
+  distance: number;
+  coordinates: { lat: number; lng: number };
+}
+
+interface MidpointData {
+  midpoint: { lat: number; lng: number };
+  midpoint_address: string;
+  places: Place[];
+  radius_meters: number;
+}
+
 interface MidpointMapPageProps {
   activity: string;
   onBack: () => void;
   onShare: () => void;
+  midpointData?: MidpointData;
 }
 
-export function MidpointMapPage({ activity, onBack, onShare }: MidpointMapPageProps) {
-  // Mock places data
-  const places = [
-    {
-      id: '1',
-      name: "The Garden Bistro",
-      rating: 4.5,
-      distance: "0.2 mi",
-      address: "123 Main St",
-      usersGoing: 3,
-      lat: 40.7580,
-      lng: -73.9855
-    },
-    {
-      id: '2',
-      name: "Midtown Grill",
-      rating: 4.7,
-      distance: "0.3 mi",
-      address: "456 Center Ave",
-      usersGoing: 5,
-      lat: 40.7590,
-      lng: -73.9845
-    },
-    {
-      id: '3',
-      name: "Fusion Kitchen",
-      rating: 4.3,
-      distance: "0.4 mi",
-      address: "789 Park Blvd",
-      usersGoing: 2,
-      lat: 40.7570,
-      lng: -73.9865
-    },
-  ];
+export function MidpointMapPage({ activity, onBack, onShare, midpointData }: MidpointMapPageProps) {
+  const [displayedCount, setDisplayedCount] = useState<number>(10);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const formatDistance = (distanceMiles: number): string => {
+    return `${distanceMiles.toFixed(1)} mi`;
+  };
+
+  const getActivityLabel = (activityType: string): string => {
+    switch (activityType) {
+      case 'restaurants':
+        return 'Restaurants';
+      case 'cafes':
+        return 'Cafes';
+      case 'shopping':
+        return 'Shopping';
+      case 'entertainment':
+        return 'Entertainment';
+      default:
+        return 'Places';
+    }
+  };
+
+  const places = midpointData?.places || [];
+  const displayedPlaces = places.slice(0, displayedCount);
+
+  // Reset displayed count when places change
+  useEffect(() => {
+    setDisplayedCount(10);
+  }, [places.length]);
+
+  // Handle scroll to load more
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      const paddingToBottom = 50;
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - paddingToBottom;
+
+      if (isNearBottom && displayedCount < places.length) {
+        // Load 10 more places
+        setDisplayedCount((prev) => Math.min(prev + 10, places.length));
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, [displayedCount, places.length]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center p-4">
@@ -95,7 +131,7 @@ export function MidpointMapPage({ activity, onBack, onShare }: MidpointMapPagePr
                 </div>
 
                 {/* Place markers with stars */}
-                {places.map((place, index) => {
+                {places.slice(0, 3).map((place, index) => {
                   const positions = [
                     { top: '30%', left: '40%' },
                     { top: '50%', left: '65%' },
@@ -103,7 +139,7 @@ export function MidpointMapPage({ activity, onBack, onShare }: MidpointMapPagePr
                   ];
                   return (
                     <div
-                      key={place.id}
+                      key={place.place_id}
                       className="absolute"
                       style={positions[index]}
                     >
@@ -116,68 +152,65 @@ export function MidpointMapPage({ activity, onBack, onShare }: MidpointMapPagePr
               </div>
               
               {/* Map overlay info */}
-              <div className="absolute top-4 right-4">
-                <Badge className="bg-secondary text-secondary-foreground backdrop-blur shadow-lg">
-                  <Users className="w-3 h-3 mr-1" />
-                  {places.reduce((sum, p) => sum + p.usersGoing, 0)} people nearby
-                </Badge>
-              </div>
+              {places.length > 0 && (
+                <div className="absolute top-4 right-4">
+                  <Badge className="bg-secondary text-secondary-foreground backdrop-blur shadow-lg">
+                    <Users className="w-3 h-3 mr-1" />
+                    {places.length} places nearby
+                  </Badge>
+                </div>
+              )}
             </div>
           </Card>
 
           {/* Activity Type Badge */}
           <div className="flex items-center justify-between mb-4">
-            <h2>Nearby {activity === 'restaurants' ? 'Restaurants' : activity === 'shopping' ? 'Shopping' : 'Cafes'}</h2>
-            <Badge className="bg-secondary text-secondary-foreground">{places.length} places</Badge>
+            <h2>Nearby {getActivityLabel(activity)}</h2>
+            <Badge className="bg-secondary text-secondary-foreground">
+              {displayedPlaces.length} {displayedPlaces.length < places.length ? `of ${places.length}` : ''} places
+            </Badge>
           </div>
 
           {/* Places List */}
-          <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 mb-6">
-            {places.map((place) => (
-              <Card key={place.id} className="overflow-hidden hover:shadow-md transition-shadow border-secondary/20 hover:border-secondary/50">
+          <div 
+            ref={scrollContainerRef}
+            className="space-y-3 max-h-[280px] overflow-y-auto pr-1 mb-6"
+          >
+            {displayedPlaces.length > 0 ? (
+              displayedPlaces.map((place) => (
+                <Card key={place.place_id} className="overflow-hidden hover:shadow-md transition-shadow border-secondary/20 hover:border-secondary/50">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="flex-1">{place.name}</h3>
+                      {place.rating !== undefined && place.rating !== null && (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span>{place.rating.toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-4 mb-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Navigation className="w-4 h-4" />
+                        <span>{formatDistance(place.distance)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span>{place.address}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="overflow-hidden border-secondary/20">
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="flex-1">{place.name}</h3>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span>{place.rating}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 mb-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Navigation className="w-4 h-4" />
-                      <span>{place.distance}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>{place.usersGoing} going</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span>{place.address}</span>
-                  </div>
-
-                  {/* Random users going indicator */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-secondary/20">
-                    <div className="flex -space-x-2">
-                      {[...Array(Math.min(place.usersGoing, 3))].map((_, i) => (
-                        <Avatar key={i} className="w-6 h-6 border-2 border-background ring-1 ring-secondary/30">
-                          <AvatarFallback className="text-xs bg-secondary/10 text-secondary">
-                            {String.fromCharCode(65 + i)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                    </div>
-                    <span className="text-xs text-secondary">
-                      {place.usersGoing} {place.usersGoing === 1 ? 'person is' : 'people are'} also going here
-                    </span>
-                  </div>
+                  <p className="text-muted-foreground">No places found near the midpoint.</p>
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
 
           {/* Share Button */}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   ArrowLeft,
@@ -25,42 +25,109 @@ import { colors, colorOpacity } from "../constants/theme";
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-// Mock restaurant data
-const mockRestaurants = [
-  {
-    id: "1",
-    name: "The Garden Bistro",
-    rating: 4.5,
-    distance: "0.2 mi",
-    goingCount: 3,
-    address: "123 Main St",
-    peopleGoing: ["A", "B", "C"],
-  },
-  {
-    id: "2",
-    name: "Midtown Grill",
-    rating: 4.7,
-    distance: "0.3 mi",
-    goingCount: 5,
-    address: "456 Center Ave",
-    peopleGoing: [],
-  },
-  {
-    id: "3",
-    name: "Café Central",
-    rating: 4.3,
-    distance: "0.4 mi",
-    goingCount: 2,
-    address: "789 Park Blvd",
-    peopleGoing: ["D", "E"],
-  },
-];
+interface Place {
+  place_id: string;
+  name: string;
+  address: string;
+  rating?: number;
+  distance: number;
+  coordinates: { lat: number; lng: number };
+}
+
+interface MidpointData {
+  midpoint: { lat: number; lng: number };
+  midpoint_address: string;
+  places: Place[];
+  radius_meters: number;
+}
 
 export default function MidpointMapPage() {
+  const params = useLocalSearchParams();
+  const [midpointData, setMidpointData] = useState<MidpointData | null>(null);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [activity, setActivity] = useState<string>("restaurants");
+  const [displayedCount, setDisplayedCount] = useState<number>(10);
+
+  useEffect(() => {
+    // Parse midpointData from params
+    if (params.midpointData) {
+      try {
+        const data = JSON.parse(params.midpointData as string) as MidpointData;
+        setMidpointData(data);
+        setPlaces(data.places || []);
+      } catch (error) {
+        console.error("Error parsing midpoint data:", error);
+      }
+    }
+  }, [params.midpointData]);
+
+  useEffect(() => {
+    if (params.activity) {
+      setActivity(params.activity as string);
+    }
+  }, [params.activity]);
+
+  const formatDistance = (distanceMiles: number): string => {
+    return `${distanceMiles.toFixed(1)} mi`;
+  };
+
+  const getActivityLabel = (activityType: string): string => {
+    switch (activityType) {
+      case "restaurants":
+        return "Restaurants";
+      case "cafes":
+        return "Cafes";
+      case "shopping":
+        return "Shopping";
+      case "entertainment":
+        return "Entertainment";
+      default:
+        return "Places";
+    }
+  };
+
   const handleShare = () => {
     successHaptic();
-    router.push("/poll");
+    if (midpointData) {
+      router.push({
+        pathname: "/poll",
+        params: {
+          midpointData: JSON.stringify(midpointData),
+        },
+      });
+    } else {
+      router.push("/poll");
+    }
   };
+
+  const handleRestaurantPress = (place: Place) => {
+    successHaptic();
+    router.push({
+      pathname: "/event-detail",
+      params: {
+        restaurantName: place.name,
+        restaurantAddress: place.address,
+        restaurantPlaceId: place.place_id,
+        restaurantCoordinates: JSON.stringify(place.coordinates),
+        restaurantRating: place.rating?.toString() || "",
+        restaurantDistance: place.distance.toString(),
+        isNewEvent: "true",
+      },
+    });
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+
+    if (isNearBottom && displayedCount < places.length) {
+      // Load 10 more places
+      setDisplayedCount((prev) => Math.min(prev + 10, places.length));
+    }
+  };
+
+  const displayedPlaces = places.slice(0, displayedCount);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -98,14 +165,18 @@ export default function MidpointMapPage() {
           style={styles.bodySection}
           contentContainerStyle={styles.bodyScrollContent}
           showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={400}
         >
           {/* Map Visualization Card */}
           <View style={styles.mapCard}>
             {/* People Nearby Badge */}
-            <View style={styles.peopleBadge}>
-              <Users size={14} color={colors.icon.white} />
-              <Text style={styles.peopleBadgeText}>10 people nearby</Text>
-            </View>
+            {displayedPlaces.length > 0 && (
+              <View style={styles.peopleBadge}>
+                <Users size={14} color={colors.icon.white} />
+                <Text style={styles.peopleBadgeText}>{places.length} places nearby</Text>
+              </View>
+            )}
 
             {/* Map Grid Background */}
             <View style={styles.mapGrid}>
@@ -138,60 +209,57 @@ export default function MidpointMapPage() {
             </View>
           </View>
 
-          {/* Nearby Restaurants Section */}
+          {/* Nearby Places Section */}
           <View style={styles.restaurantsSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Nearby Restaurants</Text>
+              <Text style={styles.sectionTitle}>Nearby {getActivityLabel(activity)}</Text>
               <View style={styles.placesBadge}>
-                <Text style={styles.placesBadgeText}>{mockRestaurants.length} places</Text>
+                <Text style={styles.placesBadgeText}>
+                  {displayedPlaces.length} {displayedPlaces.length < places.length ? `of ${places.length}` : ''} places
+                </Text>
               </View>
             </View>
 
-            {/* Restaurant Cards */}
-            {mockRestaurants.map((restaurant) => (
-              <View key={restaurant.id} style={styles.restaurantCard}>
-                {/* Restaurant Header */}
-                <View style={styles.restaurantHeader}>
-                  <Text style={styles.restaurantName}>{restaurant.name}</Text>
-                  <View style={styles.ratingContainer}>
-                    <Star size={16} color={colors.primary} fill={colors.primary} />
-                    <Text style={styles.ratingText}>{restaurant.rating}</Text>
+            {/* Place Cards */}
+            {displayedPlaces.length > 0 ? (
+              displayedPlaces.map((place) => (
+                <Pressable
+                  key={place.place_id}
+                  onPress={() => handleRestaurantPress(place)}
+                  style={({ pressed }) => [
+                    styles.restaurantCard,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  {/* Place Header */}
+                  <View style={styles.restaurantHeader}>
+                    <Text style={styles.restaurantName}>{place.name}</Text>
+                    {place.rating !== undefined && place.rating !== null && (
+                      <View style={styles.ratingContainer}>
+                        <Star size={16} color={colors.primary} fill={colors.primary} />
+                        <Text style={styles.ratingText}>{place.rating.toFixed(1)}</Text>
+                      </View>
+                    )}
                   </View>
-                </View>
 
-                {/* Restaurant Details */}
-                <View style={styles.restaurantDetails}>
-                  <View style={styles.detailRow}>
-                    <Navigation size={16} color={colors.icon.muted} />
-                    <Text style={styles.detailText}>{restaurant.distance}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Users size={16} color={colors.icon.muted} />
-                    <Text style={styles.detailText}>{restaurant.goingCount} going</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <MapPin size={16} color={colors.icon.muted} />
-                    <Text style={styles.detailText}>{restaurant.address}</Text>
-                  </View>
-                </View>
-
-                {/* People Going */}
-                {restaurant.peopleGoing.length > 0 && (
-                  <View style={styles.peopleGoingContainer}>
-                    <View style={styles.peopleAvatars}>
-                      {restaurant.peopleGoing.map((initial, index) => (
-                        <View key={index} style={styles.avatarCircle}>
-                          <Text style={styles.avatarText}>{initial}</Text>
-                        </View>
-                      ))}
+                  {/* Place Details */}
+                  <View style={styles.restaurantDetails}>
+                    <View style={styles.detailRow}>
+                      <Navigation size={16} color={colors.icon.muted} />
+                      <Text style={styles.detailText}>{formatDistance(place.distance)}</Text>
                     </View>
-                    <Text style={styles.peopleGoingText}>
-                      {restaurant.peopleGoing.length} people are also going here
-                    </Text>
+                    <View style={styles.detailRow}>
+                      <MapPin size={16} color={colors.icon.muted} />
+                      <Text style={styles.detailText}>{place.address}</Text>
+                    </View>
                   </View>
-                )}
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.restaurantCard}>
+                <Text style={styles.detailText}>No places found near the midpoint.</Text>
               </View>
-            ))}
+            )}
           </View>
         </ScrollView>
 
