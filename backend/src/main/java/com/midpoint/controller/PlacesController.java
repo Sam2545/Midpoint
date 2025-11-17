@@ -61,7 +61,6 @@ public class PlacesController {
                 })
                 .doOnError(error -> {
                     System.err.println("❌ [CONTROLLER] Error processing midpoint request: " + error.getMessage());
-                    error.printStackTrace();
                 })
                 .onErrorReturn(ResponseEntity.badRequest().build());
     }

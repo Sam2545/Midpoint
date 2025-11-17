@@ -406,14 +406,12 @@ public class MidpointService {
                         return enhanced;
                     } catch (Exception e) {
                         System.err.println("❌ [ISOCHRONE] Error parsing distance matrix response: " + e.getMessage());
-                        e.printStackTrace();
                         return places;
                     }
                 })
                 .onErrorReturn(places)
                 .doOnError(error -> {
                     System.err.println("❌ [ISOCHRONE] Error calling Distance Matrix API: " + error.getMessage());
-                    error.printStackTrace();
                 });
     }
 
