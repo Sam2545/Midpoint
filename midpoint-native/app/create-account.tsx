@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, TextInput, StyleSheet, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  TextInput,
+  StyleSheet,
+  Dimensions,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, User, Phone, MapPinned, ArrowLeft, Mail, Lock } from 'lucide-react-native';
 import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
-// import { AuthService } from '../lib/auth'; // Database integration commented out
+import { AuthService } from '../lib/auth';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -22,6 +33,7 @@ export default function CreateAccountPage() {
   const [profileImage, setProfileImage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleImageUpload = async () => {
     try {
@@ -41,7 +53,11 @@ export default function CreateAccountPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (loading) {
+      return;
+    }
+
     // Validate required fields
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
       setError('Please fill in all required fields (First Name, Last Name, Email, Password)');
@@ -61,40 +77,51 @@ export default function CreateAccountPage() {
       return;
     }
 
-    // Database integration commented out
-    // setLoading(true);
-    // setError('');
-    // try {
-    //   const result = await AuthService.signUp({
-    //     first_name: firstName.trim(),
-    //     last_name: lastName.trim(),
-    //     email: email.trim(),
-    //     password: password.trim(),
-    //     phone: phone.trim() || undefined,
-    //     address: address.trim() || undefined,
-    //   });
-    //   if (result.error) {
-    //     const errorMessage = (result.error as any)?.message || 'Registration failed. Please try again.';
-    //     setError(errorMessage);
-    //     return;
-    //   }
-    //   if (result.data) {
-    //     successHaptic();
-    //     router.push('/home');
-    //   }
-    // } catch (err) {
-    //   setError('An unexpected error occurred. Please try again.');
-    //   console.error('Registration error:', err);
-    // } finally {
-    //   setLoading(false);
-    // }
+    if (password.trim() !== confirmPassword.trim()) {
+      setError('Passwords do not match');
+      return;
+    }
 
-    // Simple navigation without database
-    successHaptic();
-    router.push('/home');
+    setLoading(true);
+    setError('');
+    try {
+      const result = await AuthService.signUp({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: email.trim(),
+        password: password.trim(),
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+      });
+
+      if (result.error) {
+        const errorMessage = (result.error as any)?.message || 'Registration failed. Please try again.';
+        setError(errorMessage);
+        return;
+      }
+
+      if (result.data?.user) {
+        successHaptic();
+        router.replace({
+          pathname: '/login',
+          params: { registered: '1' },
+        });
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Registration error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isFormValid = firstName.trim() !== '' && lastName.trim() !== '' && email.trim() !== '' && password.trim() !== ''; // && !loading; // Loading state commented out
+  const isFormValid =
+    firstName.trim() !== '' &&
+    lastName.trim() !== '' &&
+    email.trim() !== '' &&
+    password.trim() !== '' &&
+    confirmPassword.trim() !== '' &&
+    !loading;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -293,6 +320,27 @@ export default function CreateAccountPage() {
                 />
               </View>
 
+              {/* Confirm Password Input */}
+              <View style={styles.inputGroup}>
+                <View style={styles.labelContainer}>
+                  <Lock size={18} color={colors.primary} style={styles.labelIcon} />
+                  <Text style={styles.inputLabel}>Confirm Password *</Text>
+                </View>
+                <TextInput
+                  placeholder="Confirm your password"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    setError('');
+                  }}
+                  style={styles.input}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="password-new"
+                />
+              </View>
+
               {/* Submit Button */}
               <Pressable
                 onPress={handleSubmit}
@@ -304,8 +352,7 @@ export default function CreateAccountPage() {
                 ]}
               >
                 <Text style={styles.submitButtonText}>
-                  {/* {loading ? 'Creating account...' : 'Continue to Mid'} */}
-                  Continue to Mid
+                  {loading ? 'Creating account...' : 'Create Account'}
                 </Text>
               </Pressable>
             </View>

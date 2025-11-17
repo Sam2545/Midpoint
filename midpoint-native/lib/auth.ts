@@ -1,16 +1,19 @@
-import { supabase, User, LoginCredentials, RegisterData } from './supabase'
+import { supabase, UserProfile, LoginCredentials, RegisterData } from './supabase'
+
+const errorMessage = (message: string) => ({ message })
 
 export class AuthService {
-  // Sign up a new user - Direct database insert
+  // Sign up a new user directly in the users table
   static async signUp(userData: RegisterData) {
     try {
-      // Check if user already exists
       const { exists } = await this.checkUserExists(userData.email)
       if (exists) {
-        return { data: null, error: { message: 'User with this email already exists. Please sign in instead.' } }
+        return {
+          data: null,
+          error: errorMessage('User with this email already exists. Please sign in instead.')
+        }
       }
 
-      // Insert user data directly into our custom users table
       const { data, error } = await supabase
         .from('users')
         .insert({
@@ -19,14 +22,15 @@ export class AuthService {
           email: userData.email,
           phone: userData.phone,
           address: userData.address,
-          password_hash: userData.password // Note: In production, hash this password
+          password_hash: userData.password // TODO: hash before storing in production
         })
-        .select()
+        .select('*')
         .single()
 
-      if (error) throw error
+      if (error) {
+        throw error
+      }
 
-      // Create a mock user object for consistency
       const mockUser = {
         id: data.id,
         email: data.email,
@@ -38,39 +42,37 @@ export class AuthService {
         }
       }
 
-      return { 
-        data: { 
-          user: mockUser, 
-          profile: data 
-        }, 
-        error: null 
+      return {
+        data: {
+          user: mockUser,
+          profile: data as UserProfile
+        },
+        error: null
       }
     } catch (error) {
-      return { data: null, error }
+      console.error('signUp error', error)
+      return { data: null, error: errorMessage('Unable to sign up right now. Please try again.') }
     }
   }
 
-  // Simple email and password validation
+  // Simple email + password validation against users table
   static async signIn(credentials: LoginCredentials) {
     try {
-      // Query the users table directly
-      const { data: users, error } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('email', credentials.email)
         .eq('password_hash', credentials.password)
 
       if (error) {
-        return { data: null, error: { message: 'Database error. Please try again.' } }
+        return { data: null, error: errorMessage('Database error. Please try again.') }
       }
 
-      if (!users || users.length === 0) {
-        return { data: null, error: { message: 'Invalid email or password.' } }
+      if (!data || data.length === 0) {
+        return { data: null, error: errorMessage('Invalid email or password.') }
       }
 
-      const user = users[0];
-
-      // Create a simple user object
+      const user = data[0]
       const mockUser = {
         id: user.id,
         email: user.email,
@@ -82,19 +84,20 @@ export class AuthService {
         }
       }
 
-      return { 
-        data: { 
-          user: mockUser, 
-          profile: user 
-        }, 
-        error: null 
+      return {
+        data: {
+          user: mockUser,
+          profile: user as UserProfile
+        },
+        error: null
       }
     } catch (error) {
-      return { data: null, error: { message: 'An error occurred. Please try again.' } }
+      console.error('signIn error', error)
+      return { data: null, error: errorMessage('An error occurred. Please try again.') }
     }
   }
 
-  // Check if user exists by email (for verification)
+  // Check if user exists by email (users table)
   static async checkUserExists(email: string) {
     try {
       const { data, error } = await supabase
@@ -103,7 +106,7 @@ export class AuthService {
         .eq('email', email)
         .single()
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      if (error && error.code !== 'PGRST116') {
         throw error
       }
 
@@ -116,8 +119,11 @@ export class AuthService {
   // Get current user profile
   static async getCurrentUser() {
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
+      const {
+        data: { user },
+        error: authError
+      } = await supabase.auth.getUser()
+
       if (authError || !user) {
         return { user: null, profile: null, error: authError }
       }
@@ -147,4 +153,3 @@ export class AuthService {
     }
   }
 }
-

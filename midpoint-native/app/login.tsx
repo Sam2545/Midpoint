@@ -1,54 +1,82 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Dimensions,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPinned, ArrowLeft, Mail, Lock } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { colors, colorOpacity } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
-// import { AuthService } from '../lib/auth'; // Database integration commented out
+import { AuthService } from '../lib/auth';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
+const SUCCESS_COLOR_BORDER = '#22c55e';
+const SUCCESS_COLOR_TEXT = '#16a34a';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+  const params = useLocalSearchParams<{ registered?: string }>();
 
-  const handleLogin = () => {
+  React.useEffect(() => {
+    if (params.registered === '1') {
+      setInfoMessage('Registration successful! Please sign in with your new credentials.');
+    } else {
+      setInfoMessage('');
+    }
+  }, [params.registered]);
+
+  const handleLogin = async () => {
+    if (loading) {
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password');
       return;
     }
 
-    // Database integration commented out
-    // setLoading(true);
-    // setError('');
-    // try {
-    //   const result = await AuthService.signIn({
-    //     email: email.trim(),
-    //     password: password.trim(),
-    //   });
-    //   if (result.error) {
-    //     setError(result.error.message || 'Login failed. Please try again.');
-    //     return;
-    //   }
-    //   if (result.data) {
-    //     successHaptic();
-    //     router.push('/home');
-    //   }
-    // } catch (err) {
-    //   setError('An unexpected error occurred. Please try again.');
-    //   console.error('Login error:', err);
-    // } finally {
-    //   setLoading(false);
-    // }
+    setLoading(true);
+    setError('');
+    try {
+      const result = await AuthService.signIn({
+        email: email.trim(),
+        password: password.trim(),
+      });
 
-    // Simple navigation without database
-    successHaptic();
-    router.push('/home');
+      if (result.error) {
+        const message = result.error.message || 'Login failed. Please try again.';
+        setError(message);
+        return;
+      }
+
+      if (result.data?.user) {
+        successHaptic();
+        router.replace('/home');
+      } else {
+        setError('Invalid email or password.');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
+      Alert.alert('Login failed', 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -62,7 +90,7 @@ export default function LoginScreen() {
     router.push('/create-account');
   };
 
-  const isFormValid = email.trim() !== '' && password.trim() !== ''; // && !loading; // Loading state commented out
+  const isFormValid = email.trim() !== '' && password.trim() !== '' && !loading;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,6 +132,13 @@ export default function LoginScreen() {
 
             {/* Body Section - Login Form */}
             <View style={styles.bodySection}>
+              {/* Info Message */}
+              {infoMessage ? (
+                <View style={styles.infoContainer}>
+                  <Text style={styles.infoText}>{infoMessage}</Text>
+                </View>
+              ) : null}
+
               {/* Error Message */}
               {error ? (
                 <View style={styles.errorContainer}>
@@ -175,8 +210,7 @@ export default function LoginScreen() {
                 ]}
               >
                 <Text style={styles.loginButtonText}>
-                  {/* {loading ? 'Logging in...' : 'Login to Mid'} */}
-                  Login to Mid
+                  {loading ? 'Logging in...' : 'Login to Mid'}
                 </Text>
               </Pressable>
 
@@ -354,6 +388,19 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.destructive,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  infoContainer: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderWidth: 1,
+    borderColor: SUCCESS_COLOR_BORDER,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  infoText: {
+    color: SUCCESS_COLOR_TEXT,
     fontSize: 14,
     fontWeight: '500',
   },
