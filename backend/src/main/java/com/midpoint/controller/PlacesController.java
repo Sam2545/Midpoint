@@ -3,6 +3,8 @@ package com.midpoint.controller;
 import com.midpoint.dto.*;
 import com.midpoint.service.GoogleMapsService;
 import com.midpoint.service.MidpointService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,8 @@ import java.util.UUID;
 @RequestMapping("/api/places")
 @CrossOrigin(origins = "*")
 public class PlacesController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlacesController.class);
 
     @Autowired
     private GoogleMapsService googleMapsService;
@@ -50,17 +54,17 @@ public class PlacesController {
 
     @PostMapping("/midpoint")
     public Mono<ResponseEntity<MidpointResponse>> findMidpoint(@RequestBody MidpointRequest request) {
-        System.out.println("\n🌐 [CONTROLLER] Received midpoint request");
-        System.out.println("  📍 Coordinates: " + request.getCoords().size());
-        System.out.println("  🔍 Filters: " + request.getFilters());
+        LOGGER.info("🌐 [CONTROLLER] Received midpoint request");
+        LOGGER.info("  📍 Coordinates: {}", request.getCoords().size());
+        LOGGER.info("  🔍 Filters: {}", request.getFilters());
         
         return midpointService.findMidpointAndPlaces(request)
                 .map(response -> {
-                    System.out.println("✅ [CONTROLLER] Returning midpoint response with " + response.getPlaces().size() + " places");
+                    LOGGER.info("✅ [CONTROLLER] Returning midpoint response with {} places", response.getPlaces().size());
                     return ResponseEntity.ok(response);
                 })
                 .doOnError(error -> {
-                    System.err.println("❌ [CONTROLLER] Error processing midpoint request: " + error.getMessage());
+                    LOGGER.error("❌ [CONTROLLER] Error processing midpoint request", error);
                 })
                 .onErrorReturn(ResponseEntity.badRequest().build());
     }
