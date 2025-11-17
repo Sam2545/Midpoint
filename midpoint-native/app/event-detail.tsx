@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Calendar, MapPin, Clock, Check } from 'lucide-react-native';
 import { colors, colorOpacity } from '../constants/theme';
@@ -31,7 +31,8 @@ const initialTimePollOptions = [
   },
 ];
 
-const eventDetails = {
+// Default event details (used when no params are provided)
+const defaultEventDetails = {
   title: 'Coffee Meetup',
   location: 'Starbucks Downtown',
   date: 'Oct 25, 2025',
@@ -40,7 +41,24 @@ const eventDetails = {
 };
 
 export default function EventDetailPage() {
+  const params = useLocalSearchParams();
   const [pollOptions, setPollOptions] = useState(initialTimePollOptions);
+  
+  // Determine if this is a new event from restaurant selection
+  const isNewEvent = params.isNewEvent === 'true';
+  
+  // Get restaurant data from params if available
+  const restaurantName = params.restaurantName as string | undefined;
+  const restaurantAddress = params.restaurantAddress as string | undefined;
+  
+  // Build event details from params or use defaults
+  const eventDetails = {
+    title: restaurantName || defaultEventDetails.title,
+    location: restaurantAddress || defaultEventDetails.location,
+    date: defaultEventDetails.date,
+    time: defaultEventDetails.time,
+    attendeeCount: defaultEventDetails.attendeeCount,
+  };
 
   const handleVote = (index: number) => {
     setPollOptions(prevOptions => {

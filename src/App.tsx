@@ -22,11 +22,26 @@ interface LocationEntry {
   isMe?: boolean;
 }
 
+interface MidpointData {
+  midpoint: { lat: number; lng: number };
+  midpoint_address: string;
+  places: Array<{
+    place_id: string;
+    name: string;
+    address: string;
+    rating?: number;
+    distance: number;
+    coordinates: { lat: number; lng: number };
+  }>;
+  radius_meters: number;
+}
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [locations, setLocations] = useState<LocationEntry[]>([]);
   const [selectedActivity, setSelectedActivity] = useState('restaurants');
+  const [midpointData, setMidpointData] = useState<MidpointData | undefined>(undefined);
 
   // Prevent pull-to-refresh and improve mobile experience
   useEffect(() => {
@@ -66,10 +81,11 @@ export default function App() {
     setCurrentScreen('locations');
   };
 
-  const handleLocationsSubmit = (locationData: LocationEntry[], activity: string, friends: Friend[]) => {
+  const handleLocationsSubmit = (locationData: LocationEntry[], activity: string, friends: Friend[], midpointData?: MidpointData) => {
     setLocations(locationData);
     setSelectedActivity(activity);
     setSelectedFriends(friends);
+    setMidpointData(midpointData);
     setCurrentScreen('map');
   };
 
@@ -107,6 +123,7 @@ export default function App() {
           activity={selectedActivity}
           onBack={handleBackFromMap}
           onShare={handleShareMidpoint}
+          midpointData={midpointData}
         />
       )}
       
