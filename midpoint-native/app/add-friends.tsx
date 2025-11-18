@@ -7,6 +7,7 @@ import { ArrowLeft, UserPlus, Search, MapPin } from 'lucide-react-native';
 import { Avatar, AvatarFallback } from '../components/ui/Avatar';
 import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
+import { supabase } from '@/lib/supabase';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
