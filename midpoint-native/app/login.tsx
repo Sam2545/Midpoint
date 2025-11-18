@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { colors, colorOpacity } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
 import { AuthService } from '../lib/auth';
+import { FriendsService } from '../lib/friends';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -35,6 +36,10 @@ export default function LoginScreen() {
         return;
       }
       if (result.data) {
+        // Store user ID for friends service
+        if (result.data.profile?.id) {
+          FriendsService.setCurrentUserId(result.data.profile.id);
+        }
         successHaptic();
         router.push('/home');
       }

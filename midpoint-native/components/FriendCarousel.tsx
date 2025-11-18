@@ -16,25 +16,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/Avatar";
 import { selectionHaptic } from "../utils/haptics";
 import { Friend } from "../utils/types";
 import { colors, colorOpacity } from "../constants/theme";
+import { FriendsService } from "../lib/friends";
 
 interface FriendCarouselProps {
   onFriendsChange: (friends: Friend[]) => void;
 }
 
 export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
-  // Mock friends list - in real app, this would come from contacts/API
-  const [allFriends, setAllFriends] = useState<Friend[]>([
-    { id: "1", name: "Sarah", phone: "(555) 234-5678", avatar: "" },
-    { id: "2", name: "Mike", phone: "(555) 345-6789", avatar: "" },
-    { id: "3", name: "Emma", phone: "(555) 456-7890", avatar: "" },
-  ]);
-
+  const [allFriends, setAllFriends] = useState<Friend[]>([]);
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(
     new Set()
   );
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
 
   // Contacts state
   const [contacts, setContacts] = useState<Friend[]>([]);
@@ -43,6 +39,39 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [contactsPermissionGranted, setContactsPermissionGranted] =
     useState(false);
+
+  // Load friends from database
+  useEffect(() => {
+    loadFriends();
+  }, []);
+
+  const loadFriends = async () => {
+    setIsLoadingFriends(true);
+    try {
+      const result = await FriendsService.getFriends();
+      if (result.data) {
+        // Convert database friends to Friend format
+        const formattedFriends: Friend[] = result.data.map((f) => ({
+          id: f.id,
+          name: f.first_name && f.last_name 
+            ? `${f.first_name} ${f.last_name}` 
+            : f.username || 'Unknown',
+          phone: f.phone,
+          avatar: '',
+          username: f.username,
+          first_name: f.first_name,
+          last_name: f.last_name,
+          email: f.email,
+          address: f.address,
+        }));
+        setAllFriends(formattedFriends);
+      }
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    } finally {
+      setIsLoadingFriends(false);
+    }
+  };
 
   // Load contacts from device
   const loadContacts = useCallback(async () => {
@@ -161,8 +190,15 @@ export function FriendCarousel({ onFriendsChange }: FriendCarouselProps) {
 
   const renderFriend = ({ item: friend }: { item: Friend }) => {
     const isSelected = selectedFriends.has(friend.id);
-    // Get first letter of first name (or first letter of name if no space)
-    const firstInitial = friend.name.trim()[0]?.toUpperCase() || '?';
+    // Get initials from name or first_name/last_name
+    let firstInitial = '?';
+    if (friend.first_name && friend.last_name) {
+      firstInitial = `${friend.first_name[0]}${friend.last_name[0]}`.toUpperCase();
+    } else if (friend.name) {
+      firstInitial = friend.name.trim()[0]?.toUpperCase() || '?';
+    } else if (friend.username) {
+      firstInitial = friend.username[0]?.toUpperCase() || '?';
+    }
 
     return (
       <Pressable
