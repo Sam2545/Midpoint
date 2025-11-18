@@ -12,10 +12,12 @@ interface LoginPageProps {
 
 export function LoginPage({ onComplete }: LoginPageProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [profileImage, setProfileImage] = useState("");
@@ -42,12 +44,12 @@ export function LoginPage({ onComplete }: LoginPageProps) {
     try {
       if (isLogin) {
         // Login logic
-        if (!email || !password) {
+        if (!username || !password) {
           setError("Please fill in all required fields");
           return;
         }
 
-        const { data, error } = await AuthService.signIn({ email, password });
+        const { data, error } = await AuthService.signIn({ username, password });
         
         if (error) {
           setError(error.message || "Login failed. Please check your credentials.");
@@ -60,7 +62,7 @@ export function LoginPage({ onComplete }: LoginPageProps) {
         }
       } else {
         // Registration logic
-        if (!name || !lastName || !email || !password) {
+        if (!username || !name || !lastName || !email || !password) {
           setError("Please fill in all required fields");
           return;
         }
@@ -75,11 +77,18 @@ export function LoginPage({ onComplete }: LoginPageProps) {
           return;
         }
 
+        if (username.length < 3) {
+          setError("Username must be at least 3 characters long");
+          return;
+        }
+
         const { data, error } = await AuthService.signUp({
+          username,
           first_name: name,
           last_name: lastName,
           email,
           phone,
+          address,
           password,
         });
 
@@ -103,8 +112,8 @@ export function LoginPage({ onComplete }: LoginPageProps) {
   };
 
   const isFormValid = isLogin 
-    ? email.trim() !== "" && password.trim() !== ""
-    : name.trim() !== "" && lastName.trim() !== "" && email.trim() !== "" && password.trim() !== "" && confirmPassword.trim() !== "";
+    ? username.trim() !== "" && password.trim() !== ""
+    : username.trim() !== "" && name.trim() !== "" && lastName.trim() !== "" && email.trim() !== "" && password.trim() !== "" && confirmPassword.trim() !== "";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50 flex items-center justify-center p-4">
@@ -190,57 +199,62 @@ export function LoginPage({ onComplete }: LoginPageProps) {
               </div>
             )}
 
-            {/* Email Input */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="email"
-                className="flex items-center gap-2 text-secondary"
-              >
-                <Mail className="w-4 h-4" />
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-input-background border-secondary/30 focus:border-secondary"
-                autoComplete="email"
-                inputMode="email"
-                required
-              />
-            </div>
+            {/* Login fields */}
+            {isLogin && (
+              <>
+                {/* Username Input - For Login */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="username-login"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <User className="w-4 h-4" />
+                    Username
+                  </Label>
+                  <Input
+                    id="username-login"
+                    type="text"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    autoComplete="username"
+                    inputMode="text"
+                    required
+                  />
+                </div>
 
-            {/* Password Input */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="password"
-                className="flex items-center gap-2 text-secondary"
-              >
-                <Lock className="w-4 h-4" />
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-input-background border-secondary/30 focus:border-secondary pr-10"
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+                {/* Password Input - For Login */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="password"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-input-background border-secondary/30 focus:border-secondary pr-10"
+                      autoComplete="current-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Registration-only fields */}
             {!isLogin && (
@@ -289,25 +303,78 @@ export function LoginPage({ onComplete }: LoginPageProps) {
                   />
                 </div>
 
-                {/* Phone Number Input */}
+                {/* Email Input */}
                 <div className="space-y-2">
                   <Label
-                    htmlFor="phone"
+                    htmlFor="email"
                     className="flex items-center gap-2 text-secondary"
                   >
-                    <Phone className="w-4 h-4" />
-                    Phone Number (Optional)
+                    <Mail className="w-4 h-4" />
+                    Email Address
                   </Label>
                   <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="(555) 123-4567"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="bg-input-background border-secondary/30 focus:border-secondary"
-                    inputMode="tel"
-                    autoComplete="tel"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
                   />
+                </div>
+
+                {/* Username Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="username"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <User className="w-4 h-4" />
+                    Username
+                  </Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Choose a username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    autoComplete="username"
+                    inputMode="text"
+                    required
+                  />
+                </div>
+
+                {/* Password Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="password-register"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password-register"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-input-background border-secondary/30 focus:border-secondary pr-10"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Confirm Password Input */}
@@ -328,6 +395,48 @@ export function LoginPage({ onComplete }: LoginPageProps) {
                     className="bg-input-background border-secondary/30 focus:border-secondary"
                     autoComplete="new-password"
                     required
+                  />
+                </div>
+
+                {/* Address Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="address"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <MapPinned className="w-4 h-4" />
+                    Address
+                  </Label>
+                  <Input
+                    id="address"
+                    type="text"
+                    placeholder="Enter your address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    autoComplete="street-address"
+                    inputMode="text"
+                  />
+                </div>
+
+                {/* Phone Number Input */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="phone"
+                    className="flex items-center gap-2 text-secondary"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Phone Number (Optional)
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="(555) 123-4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="bg-input-background border-secondary/30 focus:border-secondary"
+                    inputMode="tel"
+                    autoComplete="tel"
                   />
                 </div>
               </>
