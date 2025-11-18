@@ -3,9 +3,9 @@ const getApiBaseUrl = (): string => {
   // Try to get from environment variable, fallback to default
   const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
   if (envUrl) return envUrl;
-  
+
   // Default to localhost for development
-  return 'http://localhost:8080/api/places';
+  return "http://localhost:8080/api/places";
 };
 
 export interface PlacePrediction {
@@ -106,5 +106,3 @@ class PlacesService {
 }
 
 export default new PlacesService();
-
-
