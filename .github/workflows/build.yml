@@ -34,7 +34,6 @@ jobs:
         run: mvn -B -P enable-byte-buddy-agent clean verify
 
       - name: SonarCloud Scan
-        working-directory: ./backend # ADDED THIS
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

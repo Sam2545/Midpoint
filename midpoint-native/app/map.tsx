@@ -1,3 +1,4 @@
+import React, { useMemo } from "react";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -6,87 +7,255 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
+  Image,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
+import { WebView } from "react-native-webview";
+import { environment } from "../config/environment";
 import {
   ArrowLeft,
   MapPin,
   Star,
-  Users,
   Share2,
   Navigation,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react-native";
-import { Avatar, AvatarFallback } from "../components/ui/Avatar";
 import { successHaptic } from "../utils/haptics";
 import { colors, colorOpacity } from "../constants/theme";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
-
-interface Place {
-  place_id: string;
-  name: string;
-  address: string;
-  rating?: number;
-  distance: number;
-  coordinates: { lat: number; lng: number };
-}
-
-interface MidpointData {
-  midpoint: { lat: number; lng: number };
-  midpoint_address: string;
-  places: Place[];
-  radius_meters: number;
-}
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function MidpointMapPage() {
-  const params = useLocalSearchParams();
-  const [midpointData, setMidpointData] = useState<MidpointData | null>(null);
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [activity, setActivity] = useState<string>("restaurants");
-  const [displayedCount, setDisplayedCount] = useState<number>(10);
+  const params = useLocalSearchParams<{
+    activity?: string;
+    midpointData?: string;
+  }>();
+  const midpointData = params.midpointData
+    ? JSON.parse(params.midpointData)
+    : null;
+  const activity = params.activity || "restaurants";
 
-  useEffect(() => {
-    // Parse midpointData from params
-    if (params.midpointData) {
-      try {
-        const data = JSON.parse(params.midpointData as string) as MidpointData;
-        setMidpointData(data);
-        setPlaces(data.places || []);
-      } catch (error) {
-        console.error("Error parsing midpoint data:", error);
-      }
+  const [sheetExpanded, setSheetExpanded] = React.useState(false);
+
+  // Default center (San Francisco) - will be updated with actual midpoint data
+  const center =
+    midpointData?.midpoint?.lat && midpointData?.midpoint?.lng
+      ? { lat: midpointData.midpoint.lat, lng: midpointData.midpoint.lng }
+      : midpointData?.midpointLat && midpointData?.midpointLng
+      ? { lat: midpointData.midpointLat, lng: midpointData.midpointLng }
+      : { lat: 37.78825, lng: -122.4324 };
+
+  // Check if API key is available
+  const apiKey = environment.GOOGLE_MAPS_API_KEY;
+  console.log("🗺️ Map API Key:", apiKey ? "Set" : "NOT SET");
+
+  // Generate HTML for Google Maps
+  const mapHtml = useMemo(() => {
+    const key = environment.GOOGLE_MAPS_API_KEY || "";
+    if (!key) {
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { 
+                margin: 0; 
+                padding: 0; 
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                font-family: Arial, sans-serif;
+                background: #f0f0f0;
+              }
+              .error {
+                text-align: center;
+                color: #666;
+                padding: 20px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="error">
+              <h3>Google Maps API Key Not Set</h3>
+              <p>Please set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your environment</p>
+            </div>
+          </body>
+        </html>
+      `;
     }
-  }, [params.midpointData]);
 
-  useEffect(() => {
-    if (params.activity) {
-      setActivity(params.activity as string);
+    // Prepare markers data
+    const markers: Array<{
+      lat: number;
+      lng: number;
+      title: string;
+      icon: string;
+    }> = [];
+    if (midpointData?.places) {
+      midpointData.places.forEach((place: any, index: number) => {
+        if (place.coordinates?.lat && place.coordinates?.lng) {
+          markers.push({
+            lat: place.coordinates.lat,
+            lng: place.coordinates.lng,
+            title: place.name || `Place ${index + 1}`,
+            icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+          });
+        }
+      });
     }
-  }, [params.activity]);
 
-  const formatDistance = (distanceMiles: number): string => {
-    return `${distanceMiles.toFixed(1)} mi`;
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              html, body { 
+                width: 100%; 
+                height: 100%; 
+                margin: 0; 
+                padding: 0; 
+                overflow: hidden;
+              }
+              #map { 
+                width: 100%; 
+                height: 100vh; 
+                min-height: 200px;
+              }
+            </style>
+        </head>
+        <body>
+          <div id="map"></div>
+          <script>
+            function initMap() {
+              console.log('🗺️ Initializing Google Maps...');
+              const center = { lat: ${center.lat}, lng: ${center.lng} };
+              const mapElement = document.getElementById('map');
+              
+              if (!mapElement) {
+                console.error('❌ Map element not found!');
+                return;
+              }
+              
+              console.log('📍 Center:', center);
+              const map = new google.maps.Map(mapElement, {
+                zoom: 13,
+                center: center,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false,
+                gestureHandling: 'greedy'
+              });
+              
+              console.log('✅ Map initialized successfully');
+
+              // Add midpoint marker
+              new google.maps.Marker({
+                position: center,
+                map: map,
+                title: 'Midpoint',
+                icon: {
+                  url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                  scaledSize: new google.maps.Size(40, 40)
+                }
+              });
+
+              // Add place markers
+              const markers = ${JSON.stringify(markers)};
+              markers.forEach(marker => {
+                new google.maps.Marker({
+                  position: { lat: marker.lat, lng: marker.lng },
+                  map: map,
+                  title: marker.title,
+                  icon: marker.icon
+                });
+              });
+
+              // Fit bounds to show all markers
+              if (markers.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend(center);
+                markers.forEach(m => bounds.extend({ lat: m.lat, lng: m.lng }));
+                map.fitBounds(bounds);
+              }
+            }
+          </script>
+          <script async defer
+            src="https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap">
+          </script>
+          <script>
+            // Error handling
+            window.addEventListener('error', function(e) {
+              console.error('❌ Map error:', e.message, e.filename, e.lineno);
+              const mapEl = document.getElementById('map');
+              if (mapEl) {
+                mapEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #f00; background: #fee;">Error: ' + e.message + '</div>';
+              }
+            });
+            
+            // Log when Google Maps script loads
+            window.gm_authFailure = function() {
+              console.error('❌ Google Maps authentication failed - check your API key');
+              const mapEl = document.getElementById('map');
+              if (mapEl) {
+                mapEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #f00; background: #fee;">Google Maps API Key Error - Please check your API key</div>';
+              }
+            };
+            
+            // Timeout fallback
+            setTimeout(function() {
+              if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+                console.error('❌ Google Maps failed to load after 10 seconds');
+                const mapEl = document.getElementById('map');
+                if (mapEl) {
+                  mapEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; background: #f0f0f0;">Failed to load Google Maps. Please check your API key and internet connection.</div>';
+                }
+              }
+            }, 10000);
+            
+            // Debug: Log script loading
+            console.log('🗺️ Google Maps script tag added, waiting for callback...');
+          </script>
+        </body>
+      </html>
+    `;
+  }, [center, midpointData, apiKey]);
+
+  // Get places from midpoint data or use empty array
+  const places = midpointData?.places || [];
+
+  // Helper function to open Google Maps
+  const openGoogleMaps = (place: any) => {
+    if (place.coordinates?.lat && place.coordinates?.lng) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${place.coordinates.lat},${place.coordinates.lng}`;
+      Linking.openURL(url).catch((err) => {
+        console.error("Failed to open Google Maps:", err);
+      });
+    } else if (place.place_id) {
+      const url = `https://www.google.com/maps/place/?q=place_id:${place.place_id}`;
+      Linking.openURL(url).catch((err) => {
+        console.error("Failed to open Google Maps:", err);
+      });
+    }
   };
 
-  const getActivityLabel = (activityType: string): string => {
-    switch (activityType) {
-      case "restaurants":
-        return "Restaurants";
-      case "cafes":
-        return "Cafes";
-      case "shopping":
-        return "Shopping";
-      case "entertainment":
-        return "Entertainment";
-      default:
-        return "Places";
+  // Helper to format distance
+  const formatDistance = (distanceMeters: number | undefined) => {
+    if (!distanceMeters) return "";
+    if (distanceMeters < 1000) {
+      return `${Math.round(distanceMeters)} m`;
     }
+    return `${(distanceMeters / 1000).toFixed(1)} km`;
   };
 
-  const handleShare = () => {
+  const P=Share = () => {
     successHaptic();
     if (midpointData) {
       router.push({
@@ -130,152 +299,238 @@ export default function MidpointMapPage() {
   const displayedPlaces = places.slice(0, displayedCount);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.content}>
-        {/* Header Section with Gradient */}
-        <LinearGradient
-          colors={colors.gradients.header}
-          style={styles.headerSection}
-        >
+        {/* Minimal Header - Floating over map */}
+        <View style={styles.minimalHeader}>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
-              styles.backButton,
-              { opacity: pressed ? 0.8 : 1 },
+              styles.backButtonMinimal,
+              { opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <ArrowLeft size={24} color={colors.icon.white} />
+            <ArrowLeft size={24} color={colors.foreground} />
           </Pressable>
-
-          <View style={styles.headerContent}>
-            <View style={styles.iconContainer}>
-              <MapPin size={28} color={colors.icon.white} strokeWidth={2} />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Midpoint Found</Text>
-              <Text style={styles.headerSubtitle}>
-                Central location results
-              </Text>
-            </View>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.minimalHeaderTitle} numberOfLines={1}>
+              Midpoint Found
+            </Text>
           </View>
-        </LinearGradient>
-
-        {/* Body Section */}
-        <ScrollView
-          style={styles.bodySection}
-          contentContainerStyle={styles.bodyScrollContent}
-          showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={400}
-        >
-          {/* Map Visualization Card */}
-          <View style={styles.mapCard}>
-            {/* People Nearby Badge */}
-            {displayedPlaces.length > 0 && (
-              <View style={styles.peopleBadge}>
-                <Users size={14} color={colors.icon.white} />
-                <Text style={styles.peopleBadgeText}>{places.length} places nearby</Text>
-              </View>
-            )}
-
-            {/* Map Grid Background */}
-            <View style={styles.mapGrid}>
-              {/* Central Marker */}
-              <View style={styles.centralMarker}>
-                <LinearGradient
-                  colors={colors.gradients.header}
-                  style={styles.centralMarkerGradient}
-                >
-                  <MapPin size={20} color={colors.icon.white} fill={colors.icon.white} />
-                </LinearGradient>
-              </View>
-
-              {/* Nearby Markers */}
-              <View style={[styles.nearbyMarker, styles.marker1]}>
-                <View style={styles.nearbyMarkerCircle}>
-                  <Star size={12} color={colors.icon.white} fill={colors.icon.white} />
-                </View>
-              </View>
-              <View style={[styles.nearbyMarker, styles.marker2]}>
-                <View style={styles.nearbyMarkerCircle}>
-                  <Star size={12} color={colors.icon.white} fill={colors.icon.white} />
-                </View>
-              </View>
-              <View style={[styles.nearbyMarker, styles.marker3]}>
-                <View style={styles.nearbyMarkerCircle}>
-                  <Star size={12} color={colors.icon.white} fill={colors.icon.white} />
-                </View>
-              </View>
+          {places.length > 0 && (
+            <View style={styles.placesCountBadge}>
+              <Text style={styles.placesCountText}>{places.length}</Text>
             </View>
-          </View>
-
-          {/* Nearby Places Section */}
-          <View style={styles.restaurantsSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Nearby {getActivityLabel(activity)}</Text>
-              <View style={styles.placesBadge}>
-                <Text style={styles.placesBadgeText}>
-                  {displayedPlaces.length} {displayedPlaces.length < places.length ? `of ${places.length}` : ''} places
-                </Text>
-              </View>
-            </View>
-
-            {/* Place Cards */}
-            {displayedPlaces.length > 0 ? (
-              displayedPlaces.map((place) => (
-                <Pressable
-                  key={place.place_id}
-                  onPress={() => handleRestaurantPress(place)}
-                  style={({ pressed }) => [
-                    styles.restaurantCard,
-                    { opacity: pressed ? 0.9 : 1 },
-                  ]}
-                >
-                  {/* Place Header */}
-                  <View style={styles.restaurantHeader}>
-                    <Text style={styles.restaurantName}>{place.name}</Text>
-                    {place.rating !== undefined && place.rating !== null && (
-                      <View style={styles.ratingContainer}>
-                        <Star size={16} color={colors.primary} fill={colors.primary} />
-                        <Text style={styles.ratingText}>{place.rating.toFixed(1)}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Place Details */}
-                  <View style={styles.restaurantDetails}>
-                    <View style={styles.detailRow}>
-                      <Navigation size={16} color={colors.icon.muted} />
-                      <Text style={styles.detailText}>{formatDistance(place.distance)}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <MapPin size={16} color={colors.icon.muted} />
-                      <Text style={styles.detailText}>{place.address}</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              ))
-            ) : (
-              <View style={styles.restaurantCard}>
-                <Text style={styles.detailText}>No places found near the midpoint.</Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-
-        {/* Share Button */}
-        <View style={styles.shareButtonContainer}>
-          <Pressable
-            onPress={handleShare}
-            style={({ pressed }) => [
-              styles.shareButton,
-              { opacity: pressed ? 0.9 : 1 },
-            ]}
-          >
-            <Share2 size={20} color={colors.icon.white} />
-            <Text style={styles.shareButtonText}>Share Midpoint with Group</Text>
-          </Pressable>
+          )}
         </View>
+
+        {/* Full Screen Map */}
+        <View style={styles.mapContainer}>
+          <WebView
+            source={{ html: mapHtml }}
+            style={styles.map}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            scalesPageToFit={true}
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            originWhitelist={["*"]}
+            mixedContentMode="always"
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.error("WebView error:", nativeEvent);
+            }}
+            onHttpError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.error("WebView HTTP error:", nativeEvent.statusCode);
+            }}
+            onLoadEnd={() => {
+              console.log("🗺️ Map WebView loaded");
+            }}
+          />
+        </View>
+
+        {/* Floating Places Sheet at Bottom */}
+        {places.length > 0 && (
+          <View
+            style={[
+              styles.placesSheet,
+              !sheetExpanded && styles.placesSheetCollapsed,
+            ]}
+          >
+            <View style={styles.placesSheetContent}>
+              {/* Drag Handle - Pressable to toggle */}
+              <Pressable
+                onPress={() => {
+                  setSheetExpanded(!sheetExpanded);
+                  successHaptic();
+                }}
+                style={styles.dragHandleContainer}
+              >
+                <View style={styles.dragHandle} />
+                {sheetExpanded ? (
+                  <ChevronDown
+                    size={20}
+                    color={colors.icon.muted}
+                    style={styles.chevronIcon}
+                  />
+                ) : (
+                  <ChevronUp
+                    size={20}
+                    color={colors.icon.muted}
+                    style={styles.chevronIcon}
+                  />
+                )}
+              </Pressable>
+
+              {/* Section Header - Fixed and Pressable */}
+              <Pressable
+                onPress={() => {
+                  setSheetExpanded(!sheetExpanded);
+                  successHaptic();
+                }}
+                style={styles.sectionHeader}
+              >
+                <Text style={styles.sectionTitle}>Nearby Places</Text>
+                <View style={styles.sectionHeaderRight}>
+                  <View style={styles.placesBadge}>
+                    <Text style={styles.placesBadgeText}>
+                      {places.length} places
+                    </Text>
+                  </View>
+                  {sheetExpanded ? (
+                    <ChevronDown size={20} color={colors.icon.muted} />
+                  ) : (
+                    <ChevronUp size={20} color={colors.icon.muted} />
+                  )}
+                </View>
+              </Pressable>
+
+              {/* Places List - Scrollable - Only show when expanded */}
+              {sheetExpanded && (
+                <>
+                  <ScrollView
+                    style={styles.placesScrollView}
+                    contentContainerStyle={styles.placesScrollContent}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {/* Place Cards */}
+                    {places.map((place: any, index: number) => (
+                      <View
+                        key={place.place_id || index}
+                        style={styles.restaurantCard}
+                      >
+                        {/* Place Image */}
+                        {place.photos &&
+                          place.photos.length > 0 &&
+                          place.photos[0].url && (
+                            <Image
+                              source={{ uri: place.photos[0].url }}
+                              style={styles.placeImage}
+                              resizeMode="cover"
+                            />
+                          )}
+
+                        {/* Place Header */}
+                        <View style={styles.restaurantHeader}>
+                          <View style={styles.nameContainer}>
+                            <Text
+                              style={styles.restaurantName}
+                              numberOfLines={2}
+                            >
+                              {place.name || "Unknown Place"}
+                            </Text>
+                            {place.rating && (
+                              <View style={styles.ratingContainer}>
+                                <Star
+                                  size={16}
+                                  color={colors.primary}
+                                  fill={colors.primary}
+                                />
+                                <Text style={styles.ratingText}>
+                                  {place.rating.toFixed(1)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {/* Google Maps Link */}
+                          <Pressable
+                            onPress={() => openGoogleMaps(place)}
+                            style={({ pressed }) => [
+                              styles.mapsButton,
+                              { opacity: pressed ? 0.7 : 1 },
+                            ]}
+                          >
+                            <ExternalLink size={20} color={colors.primary} />
+                          </Pressable>
+                        </View>
+
+                        {/* Place Details */}
+                        {place.address && (
+                          <View style={styles.restaurantDetails}>
+                            <View style={styles.detailRow}>
+                              <MapPin size={16} color={colors.icon.muted} />
+                              <Text style={styles.detailText} numberOfLines={2}>
+                                {place.address}
+                              </Text>
+                            </View>
+                            {place.distance && (
+                              <View style={styles.detailRow}>
+                                <Navigation
+                                  size={16}
+                                  color={colors.icon.muted}
+                                />
+                                <Text style={styles.detailText}>
+                                  {formatDistance(place.distance)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {/* Share Button at Bottom of Sheet - Fixed */}
+                  <View style={styles.shareButtonContainer}>
+                    <Pressable
+                      onPress={handleShare}
+                      style={({ pressed }) => [
+                        styles.shareButton,
+                        { opacity: pressed ? 0.9 : 1 },
+                      ]}
+                    >
+                      <Share2 size={20} color={colors.icon.white} />
+                      <Text style={styles.shareButtonText}>
+                        Share Midpoint with Group
+                      </Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Share Button - Only show if no places */}
+        {places.length === 0 && (
+          <View style={styles.bottomShareButtonContainer}>
+            <Pressable
+              onPress={handleShare}
+              style={({ pressed }) => [
+                styles.shareButton,
+                { opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Share2 size={20} color={colors.icon.white} />
+              <Text style={styles.shareButtonText}>
+                Share Midpoint with Group
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -288,164 +543,151 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    position: "relative",
   },
-  headerSection: {
-    paddingTop: 16,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    height: HEADER_HEIGHT,
-    minHeight: 180,
-    maxHeight: 220,
-    justifyContent: 'space-between',
+  // Minimal Header - Floating over map
+  minimalHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  backButton: {
+  backButtonMinimal: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colorOpacity.white['20'],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.white,
-    marginBottom: 4,
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colorOpacity.white['80'],
-    fontWeight: '400',
-  },
-  bodySection: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  bodyScrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 100,
-  },
-  mapCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    height: 200,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  peopleBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    zIndex: 10,
+    marginRight: 8,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  peopleBadgeText: {
+  headerTitleContainer: {
+    flex: 1,
+  },
+  minimalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.foreground,
+  },
+  placesCountBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placesCountText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "600",
     color: colors.white,
   },
-  mapGrid: {
+  // Full Screen Map
+  mapContainer: {
     flex: 1,
-    backgroundColor: colorOpacity.secondary['10'],
-    borderRadius: 8,
-    position: 'relative',
-    // Create a grid pattern effect with borders
-    borderWidth: 1,
-    borderColor: colorOpacity.secondary['20'],
+    width: "100%",
+    height: "100%",
   },
-  centralMarker: {
-    position: 'absolute',
-    top: '40%',
-    left: '45%',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    zIndex: 5,
+  map: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: colorOpacity.secondary["10"],
   },
-  centralMarkerGradient: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+  // Floating Places Sheet
+  placesSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: SCREEN_HEIGHT * 0.65,
+    maxHeight: SCREEN_HEIGHT * 0.65,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 50,
+    overflow: "hidden",
   },
-  nearbyMarker: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    zIndex: 4,
+  placesSheetCollapsed: {
+    height: 100,
+    maxHeight: 100,
   },
-  marker1: {
-    top: '25%',
-    left: '35%',
+  placesSheetContent: {
+    flex: 1,
+    flexDirection: "column",
+    height: "100%",
   },
-  marker2: {
-    top: '55%',
-    left: '30%',
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingVertical: 8,
+    flexShrink: 0,
   },
-  marker3: {
-    top: '35%',
-    right: '25%',
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    marginBottom: 4,
   },
-  nearbyMarkerCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+  chevronIcon: {
+    marginTop: 4,
+  },
+  placesScrollView: {
+    flex: 1,
+    minHeight: 0,
+  },
+  placesScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   restaurantsSection: {
     marginBottom: 24,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexShrink: 0,
+  },
+  sectionHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
   },
   placesBadge: {
@@ -456,47 +698,73 @@ const styles = StyleSheet.create({
   },
   placesBadgeText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.white,
   },
   restaurantCard: {
     backgroundColor: colors.card,
     borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: "hidden",
+  },
+  placeImage: {
+    width: "100%",
+    height: 180,
+    backgroundColor: colorOpacity.secondary["10"],
+  },
+  nameContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  mapsButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colorOpacity.primary["10"],
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: colors.mutedForeground,
+    textAlign: "center",
   },
   restaurantHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: 16,
+    paddingBottom: 12,
   },
   restaurantName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
     flex: 1,
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginLeft: 12,
   },
   ratingText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   restaurantDetails: {
     gap: 8,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   detailText: {
@@ -504,8 +772,8 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
   peopleGoingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginTop: 8,
     paddingTop: 12,
@@ -513,7 +781,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   peopleAvatars: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: -8,
   },
   avatarCircle: {
@@ -521,14 +789,14 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     backgroundColor: colors.muted,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
     borderColor: colors.card,
   },
   avatarText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
   },
   peopleGoingText: {
@@ -537,7 +805,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   shareButtonContainer: {
-    position: 'absolute',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 12,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    flexShrink: 0,
+  },
+  bottomShareButtonContainer: {
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -547,15 +824,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    zIndex: 50,
   },
   shareButton: {
-    width: '100%',
+    width: "100%",
     height: 56,
     backgroundColor: colors.primary,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingHorizontal: 20,
     shadowColor: colors.black,
@@ -566,7 +844,7 @@ const styles = StyleSheet.create({
   },
   shareButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.white,
   },
 });
