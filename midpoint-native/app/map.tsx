@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -254,10 +255,48 @@ export default function MidpointMapPage() {
     return `${(distanceMeters / 1000).toFixed(1)} km`;
   };
 
-  const handleShare = () => {
+  const P=Share = () => {
     successHaptic();
-    router.push("/poll");
+    if (midpointData) {
+      router.push({
+        pathname: "/poll",
+        params: {
+          midpointData: JSON.stringify(midpointData),
+        },
+      });
+    } else {
+      router.push("/poll");
+    }
   };
+
+  const handleRestaurantPress = (place: Place) => {
+    successHaptic();
+    router.push({
+      pathname: "/event-detail",
+      params: {
+        restaurantName: place.name,
+        restaurantAddress: place.address,
+        restaurantPlaceId: place.place_id,
+        restaurantCoordinates: JSON.stringify(place.coordinates),
+        restaurantRating: place.rating?.toString() || "",
+        restaurantDistance: place.distance.toString(),
+        isNewEvent: "true",
+      },
+    });
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+
+    if (isNearBottom && displayedCount < places.length) {
+      // Load 10 more places
+      setDisplayedCount((prev) => Math.min(prev + 10, places.length));
+    }
+  };
+
+  const displayedPlaces = places.slice(0, displayedCount);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

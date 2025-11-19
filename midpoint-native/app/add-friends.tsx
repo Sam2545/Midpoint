@@ -1,77 +1,404 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, UserPlus, Search, MapPin } from 'lucide-react-native';
+import { ArrowLeft, UserPlus, Search, MapPin, Check, X, User } from 'lucide-react-native';
 import { Avatar, AvatarFallback } from '../components/ui/Avatar';
 import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
+import { FriendsService, FriendRequest } from '../lib/friends';
+import { Friend } from '../utils/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-// Mock friends data
-const mockFriends = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    phone: '(555) 234-5678',
-    initials: 'SJ',
-  },
-  {
-    id: '2',
-    name: 'Mike Chen',
-    phone: '(555) 345-6789',
-    initials: 'MC',
-  },
-  {
-    id: '3',
-    name: 'Emma Davis',
-    phone: '(555) 456-7890',
-    initials: 'ED',
-  },
-  {
-    id: '4',
-    name: 'Alex Martinez',
-    phone: '(555) 567-8901',
-    initials: 'AM',
-  },
-];
+type Tab = 'friends' | 'requests' | 'search';
 
 export default function AddFriendsPage() {
+  const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  
+  // Friends state
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [searchResults, setSearchResults] = useState<Friend[]>([]);
 
-  const toggleFriend = (friendId: string) => {
-    successHaptic();
-    const newSelected = new Set(selectedFriends);
-    if (newSelected.has(friendId)) {
-      newSelected.delete(friendId);
-    } else {
-      newSelected.add(friendId);
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Search users when query changes
+  useEffect(() => {
+    if (activeTab === 'search' && searchQuery.trim().length >= 2) {
+      const timeoutId = setTimeout(() => {
+        searchUsers();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    } else if (activeTab === 'search') {
+      setSearchResults([]);
     }
-    setSelectedFriends(newSelected);
+  }, [searchQuery, activeTab]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [friendsResult, pendingResult, sentResult] = await Promise.all([
+        FriendsService.getFriends(),
+        FriendsService.getPendingRequests(),
+        FriendsService.getSentRequests(),
+      ]);
+
+      if (friendsResult.data) {
+        // Map to include name property
+        const mappedFriends: Friend[] = friendsResult.data.map(f => ({
+          ...f,
+          name: f.first_name && f.last_name 
+            ? `${f.first_name} ${f.last_name}` 
+            : f.username || 'Unknown',
+        }));
+        setFriends(mappedFriends);
+      }
+      if (pendingResult.data) setPendingRequests(pendingResult.data);
+      if (sentResult.data) setSentRequests(sentResult.data);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleContinue = () => {
-    successHaptic();
-    // TODO: Navigate to next page or save selected friends
-    router.back();
+  const searchUsers = async () => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await FriendsService.searchUsers(searchQuery);
+      if (result.data) {
+        // Map to include name property
+        const mappedResults: Friend[] = result.data.map(f => ({
+          ...f,
+          name: f.first_name && f.last_name 
+            ? `${f.first_name} ${f.last_name}` 
+            : f.username || 'Unknown',
+        }));
+        setSearchResults(mappedResults);
+      }
+    } catch (error) {
+      console.error('Error searching users:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddNewFriend = () => {
-    successHaptic();
-    // TODO: Open modal or navigate to add new friend form
-    console.log('Add New Friend');
+  const handleSendRequest = async (userId: string) => {
+    setLoading(true);
+    try {
+      const result = await FriendsService.sendFriendRequest(userId);
+      if (result.error) {
+        Alert.alert('Error', result.error.message || 'Failed to send friend request');
+      } else {
+        successHaptic();
+        Alert.alert('Success', 'Friend request sent!');
+        await loadData();
+        setSearchQuery('');
+        setActiveTab('requests');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send friend request');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filteredFriends = mockFriends.filter(friend =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.phone.includes(searchQuery)
-  );
+  const handleAcceptRequest = async (requestId: string) => {
+    setLoading(true);
+    try {
+      const result = await FriendsService.acceptFriendRequest(requestId);
+      if (result.error) {
+        Alert.alert('Error', result.error.message || 'Failed to accept friend request');
+      } else {
+        successHaptic();
+        await loadData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to accept friend request');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const selectedCount = selectedFriends.size;
+  const handleRejectRequest = async (requestId: string) => {
+    setLoading(true);
+    try {
+      const result = await FriendsService.rejectFriendRequest(requestId);
+      if (result.error) {
+        Alert.alert('Error', result.error.message || 'Failed to reject friend request');
+      } else {
+        successHaptic();
+        await loadData();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to reject friend request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInitials = (friend: Friend) => {
+    if (friend.first_name && friend.last_name) {
+      return `${friend.first_name[0]}${friend.last_name[0]}`.toUpperCase();
+    }
+    if (friend.name) {
+      return friend.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    }
+    return '?';
+  };
+
+  const getName = (friend: Friend) => {
+    if (friend.first_name && friend.last_name) {
+      return `${friend.first_name} ${friend.last_name}`;
+    }
+    return friend.name || friend.username || 'Unknown';
+  };
+
+  const renderFriends = () => {
+    if (loading && friends.length === 0) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (friends.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No friends yet. Search for users to add friends!</Text>
+        </View>
+      );
+    }
+
+    return friends.map((friend) => {
+      const initials = getInitials(friend);
+      const name = getName(friend);
+      
+      return (
+        <Pressable
+          key={friend.id}
+          style={({ pressed }) => [
+            styles.friendCard,
+            { opacity: pressed ? 0.9 : 1 },
+          ]}
+        >
+          <View style={styles.friendCardContent}>
+            <Avatar className="w-12 h-12">
+              <AvatarFallback className="bg-muted">
+                <Text style={styles.avatarText}>{initials}</Text>
+              </AvatarFallback>
+            </Avatar>
+            <View style={styles.friendInfo}>
+              <Text style={styles.friendName}>{name}</Text>
+              {friend.username && (
+                <Text style={styles.friendUsername}>@{friend.username}</Text>
+              )}
+              {friend.address && (
+                <Text style={styles.friendAddress} numberOfLines={1}>{friend.address}</Text>
+              )}
+            </View>
+          </View>
+        </Pressable>
+      );
+    });
+  };
+
+  const renderPendingRequests = () => {
+    if (loading && pendingRequests.length === 0 && sentRequests.length === 0) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (pendingRequests.length === 0 && sentRequests.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No pending friend requests</Text>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        {pendingRequests.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Received Requests</Text>
+            {pendingRequests.map((request) => {
+              const requester = request.requester;
+              if (!requester) return null;
+              
+              const initials = requester.first_name && requester.last_name
+                ? `${requester.first_name[0]}${requester.last_name[0]}`.toUpperCase()
+                : requester.username?.[0]?.toUpperCase() || '?';
+              const name = requester.first_name && requester.last_name
+                ? `${requester.first_name} ${requester.last_name}`
+                : requester.username || 'Unknown';
+
+              return (
+                <View key={request.id} style={styles.requestCard}>
+                  <View style={styles.friendCardContent}>
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-muted">
+                        <Text style={styles.avatarText}>{initials}</Text>
+                      </AvatarFallback>
+                    </Avatar>
+                    <View style={styles.friendInfo}>
+                      <Text style={styles.friendName}>{name}</Text>
+                      {requester.username && (
+                        <Text style={styles.friendUsername}>@{requester.username}</Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.requestActions}>
+                    <Pressable
+                      onPress={() => handleAcceptRequest(request.id)}
+                      style={[styles.actionButton, styles.acceptButton]}
+                      disabled={loading}
+                    >
+                      <Check size={18} color={colors.white} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleRejectRequest(request.id)}
+                      style={[styles.actionButton, styles.rejectButton]}
+                      disabled={loading}
+                    >
+                      <X size={18} color={colors.white} />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {sentRequests.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Sent Requests</Text>
+            {sentRequests.map((request) => {
+              const responder = request.responder;
+              if (!responder) return null;
+              
+              const initials = responder.first_name && responder.last_name
+                ? `${responder.first_name[0]}${responder.last_name[0]}`.toUpperCase()
+                : responder.username?.[0]?.toUpperCase() || '?';
+              const name = responder.first_name && responder.last_name
+                ? `${responder.first_name} ${responder.last_name}`
+                : responder.username || 'Unknown';
+
+              return (
+                <View key={request.id} style={styles.requestCard}>
+                  <View style={styles.friendCardContent}>
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-muted">
+                        <Text style={styles.avatarText}>{initials}</Text>
+                      </AvatarFallback>
+                    </Avatar>
+                    <View style={styles.friendInfo}>
+                      <Text style={styles.friendName}>{name}</Text>
+                      {responder.username && (
+                        <Text style={styles.friendUsername}>@{responder.username}</Text>
+                      )}
+                      <Text style={styles.pendingText}>Pending...</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+      </>
+    );
+  };
+
+  const renderSearchResults = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (searchQuery.trim().length < 2) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Type at least 2 characters to search</Text>
+        </View>
+      );
+    }
+
+    if (searchResults.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No users found</Text>
+        </View>
+      );
+    }
+
+    return searchResults.map((user) => {
+      const initials = user.first_name && user.last_name
+        ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
+        : user.username?.[0]?.toUpperCase() || '?';
+      const name = user.first_name && user.last_name
+        ? `${user.first_name} ${user.last_name}`
+        : user.username || 'Unknown';
+      
+      const isFriend = friends.some(f => f.id === user.id);
+      const hasPendingRequest = sentRequests.some(r => r.responder_id === user.id);
+
+      return (
+        <View key={user.id} style={styles.requestCard}>
+          <View style={styles.friendCardContent}>
+            <Avatar className="w-12 h-12">
+              <AvatarFallback className="bg-muted">
+                <Text style={styles.avatarText}>{initials}</Text>
+              </AvatarFallback>
+            </Avatar>
+            <View style={styles.friendInfo}>
+              <Text style={styles.friendName}>{name}</Text>
+              {user.username && (
+                <Text style={styles.friendUsername}>@{user.username}</Text>
+              )}
+            </View>
+          </View>
+          {isFriend ? (
+            <View style={styles.friendBadge}>
+              <Text style={styles.friendBadgeText}>Friends</Text>
+            </View>
+          ) : hasPendingRequest ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>Pending</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => handleSendRequest(user.id)}
+              style={[styles.actionButton, styles.addButton]}
+              disabled={loading}
+            >
+              <UserPlus size={18} color={colors.white} />
+            </Pressable>
+          )}
+        </View>
+      );
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -106,11 +433,48 @@ export default function AddFriendsPage() {
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Add Friends</Text>
               <Text style={styles.headerSubtitle}>
-                Select friends to meet with
+                Manage your friends and requests
               </Text>
             </View>
           </View>
         </LinearGradient>
+
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <Pressable
+            onPress={() => {
+              setActiveTab('friends');
+              setSearchQuery('');
+            }}
+            style={[styles.tab, activeTab === 'friends' && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === 'friends' && styles.tabTextActive]}>
+              Friends ({friends.length})
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setActiveTab('requests');
+              setSearchQuery('');
+            }}
+            style={[styles.tab, activeTab === 'requests' && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === 'requests' && styles.tabTextActive]}>
+              Requests ({pendingRequests.length + sentRequests.length})
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setActiveTab('search');
+              setSearchQuery('');
+            }}
+            style={[styles.tab, activeTab === 'search' && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === 'search' && styles.tabTextActive]}>
+              Search
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Body Section */}
         <ScrollView
@@ -118,83 +482,28 @@ export default function AddFriendsPage() {
           contentContainerStyle={styles.bodyScrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Search Bar */}
-          <View style={styles.searchBar}>
-            <Search size={20} color={colors.icon.muted} />
-            <TextInput
-              placeholder="Search friends..."
-              placeholderTextColor={colors.mutedForeground}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.searchInput}
-              autoCapitalize="none"
-            />
-          </View>
+          {/* Search Bar - Only show in search tab */}
+          {activeTab === 'search' && (
+            <View style={styles.searchBar}>
+              <Search size={20} color={colors.icon.muted} />
+              <TextInput
+                placeholder="Search by username, email, or name..."
+                placeholderTextColor={colors.mutedForeground}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={styles.searchInput}
+                autoCapitalize="none"
+              />
+            </View>
+          )}
 
-          {/* Friends List */}
+          {/* Content based on active tab */}
           <View style={styles.friendsList}>
-            {filteredFriends.map((friend) => {
-              const isSelected = selectedFriends.has(friend.id);
-              return (
-                <Pressable
-                  key={friend.id}
-                  onPress={() => toggleFriend(friend.id)}
-                  style={({ pressed }) => [
-                    styles.friendCard,
-                    isSelected && styles.friendCardSelected,
-                    { opacity: pressed ? 0.9 : 1 },
-                  ]}
-                >
-                  <View style={styles.friendCardContent}>
-                    <Avatar className="w-12 h-12">
-                      <AvatarFallback style={styles.avatarFallback}>
-                        <Text style={styles.avatarText}>{friend.initials}</Text>
-                      </AvatarFallback>
-                    </Avatar>
-                    <View style={styles.friendInfo}>
-                      <Text style={styles.friendName}>{friend.name}</Text>
-                      <Text style={styles.friendPhone}>{friend.phone}</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
+            {activeTab === 'friends' && renderFriends()}
+            {activeTab === 'requests' && renderPendingRequests()}
+            {activeTab === 'search' && renderSearchResults()}
           </View>
-
-          {/* Add New Friend Button */}
-          <Pressable
-            onPress={handleAddNewFriend}
-            style={({ pressed }) => [
-              styles.addNewFriendButton,
-              { opacity: pressed ? 0.9 : 1 },
-            ]}
-          >
-            <UserPlus size={20} color={colors.icon.muted} />
-            <Text style={styles.addNewFriendText}>Add New Friend</Text>
-          </Pressable>
         </ScrollView>
-
-        {/* Continue Button */}
-        <View style={styles.continueButtonContainer}>
-          <Pressable
-            onPress={handleContinue}
-            style={({ pressed }) => [
-              styles.continueButton,
-              { opacity: pressed ? 0.9 : 1 },
-            ]}
-          >
-            <LinearGradient
-              colors={colors.gradients.header}
-              style={styles.continueButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.continueButtonText}>
-                Continue with {selectedCount} {selectedCount === 1 ? 'friend' : 'friends'}
-              </Text>
-            </LinearGradient>
-          </Pressable>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -298,6 +607,32 @@ const styles = StyleSheet.create({
     color: colorOpacity.white['80'],
     fontWeight: '400',
   },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 24,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.mutedForeground,
+  },
+  tabTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
   bodySection: {
     flex: 1,
     backgroundColor: colors.background,
@@ -305,7 +640,7 @@ const styles = StyleSheet.create({
   bodyScrollContent: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
   searchBar: {
     flexDirection: 'row',
@@ -326,7 +661,6 @@ const styles = StyleSheet.create({
   },
   friendsList: {
     gap: 12,
-    marginBottom: 16,
   },
   friendCard: {
     backgroundColor: colors.card,
@@ -335,15 +669,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  friendCardSelected: {
-    borderColor: colors.secondary,
-    borderWidth: 2,
-    backgroundColor: colorOpacity.secondary['5'],
+  requestCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   friendCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   avatarFallback: {
     backgroundColor: colors.muted,
@@ -365,56 +705,84 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: colors.foreground,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  friendPhone: {
+  friendUsername: {
     fontSize: 14,
     color: colors.mutedForeground,
+    marginBottom: 2,
   },
-  addNewFriendButton: {
+  friendAddress: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+  },
+  pendingText: {
+    fontSize: 12,
+    color: colors.secondary,
+    fontStyle: 'italic',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  requestActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
   },
-  addNewFriendText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.foreground,
-  },
-  continueButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    paddingTop: 12,
-    backgroundColor: colors.card,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  continueButton: {
-    width: '100%',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  continueButtonGradient: {
-    width: '100%',
-    height: 56,
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
-  continueButtonText: {
-    fontSize: 18,
+  acceptButton: {
+    backgroundColor: colors.secondary,
+  },
+  rejectButton: {
+    backgroundColor: colors.destructive,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+  },
+  friendBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: colorOpacity.secondary['20'],
+  },
+  friendBadgeText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.secondary,
+  },
+  pendingBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: colorOpacity.primary['20'],
+  },
+  pendingBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: 'center',
   },
 });
-

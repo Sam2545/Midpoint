@@ -47,7 +47,7 @@ export default function LocationsPage() {
       ...selectedFriends.map((f) => ({
         id: f.id,
         personName: f.name,
-        location: "",
+        location: f.address || "", // Auto-fill address if available
       })),
     ]);
   }, [selectedFriends]);

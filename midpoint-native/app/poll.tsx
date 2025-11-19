@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, MapPin, ThumbsUp, MessageSquare } from 'lucide-react-native';
 import { Avatar, AvatarFallback } from '../components/ui/Avatar';
@@ -29,15 +29,48 @@ const mockVotes: Vote[] = [
   },
 ];
 
-const midpointLocation = {
-  name: 'The Garden Bistro',
-  address: '123 Main St, Downtown',
-};
+interface MidpointData {
+  midpoint: { lat: number; lng: number };
+  midpoint_address: string;
+  places: Array<{
+    place_id: string;
+    name: string;
+    address: string;
+  }>;
+  radius_meters: number;
+}
 
 export default function ConfirmMidpointPage() {
+  const params = useLocalSearchParams();
   const [votes, setVotes] = useState<Vote[]>(mockVotes);
   const [myVote, setMyVote] = useState<'confirmed' | 'suggested' | null>(null);
   const [mySuggestion, setMySuggestion] = useState('');
+  const [midpointLocation, setMidpointLocation] = useState<{
+    name: string;
+    address: string;
+  }>({
+    name: 'Midpoint Location',
+    address: '',
+  });
+
+  useEffect(() => {
+    // Parse midpointData from params
+    if (params.midpointData) {
+      try {
+        const data = JSON.parse(params.midpointData as string) as MidpointData;
+        // Use first place name if available, otherwise use "Midpoint Location"
+        const name = data.places && data.places.length > 0 
+          ? data.places[0].name 
+          : 'Midpoint Location';
+        setMidpointLocation({
+          name,
+          address: data.midpoint_address || '',
+        });
+      } catch (error) {
+        console.error("Error parsing midpoint data:", error);
+      }
+    }
+  }, [params]);
 
   const handleConfirm = () => {
     successHaptic();

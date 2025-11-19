@@ -6,6 +6,8 @@ import { MapPinned, ArrowLeft, User, Lock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { colors, colorOpacity } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
+import { AuthService } from '../lib/auth';
+import { FriendsService } from '../lib/friends';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -13,12 +15,39 @@ const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = () => {
-    if (username.trim() && password.trim()) {
-      successHaptic();
-      // TODO: Implement actual login logic
-      router.push('/home');
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter both username and password');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const result = await AuthService.signIn({
+        username: username.trim(),
+        password: password.trim(),
+      });
+      if (result.error) {
+        setError(result.error.message || 'Login failed. Please try again.');
+        return;
+      }
+      if (result.data) {
+        // Store user ID for friends service
+        if (result.data.profile?.id) {
+          FriendsService.setCurrentUserId(result.data.profile.id);
+        }
+        successHaptic();
+        router.push('/home');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,7 +62,7 @@ export default function LoginScreen() {
     router.push('/create-account');
   };
 
-  const isFormValid = username.trim() !== '' && password.trim() !== '';
+  const isFormValid = username.trim() !== '' && password.trim() !== '' && !loading;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,6 +104,13 @@ export default function LoginScreen() {
 
             {/* Body Section - Login Form */}
             <View style={styles.bodySection}>
+              {/* Error Message */}
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
               {/* Username Input */}
               <View style={styles.inputGroup}>
                 <View style={styles.labelContainer}>
@@ -85,10 +121,14 @@ export default function LoginScreen() {
                   placeholder="Enter your username"
                   placeholderTextColor={colors.mutedForeground}
                   value={username}
-                  onChangeText={setUsername}
+                  onChangeText={(text) => {
+                    setUsername(text);
+                    setError('');
+                  }}
                   style={styles.input}
                   autoCapitalize="none"
                   autoComplete="username"
+                  editable={!loading}
                 />
               </View>
 
@@ -102,11 +142,15 @@ export default function LoginScreen() {
                   placeholder="Enter your password"
                   placeholderTextColor={colors.mutedForeground}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setError('');
+                  }}
                   style={styles.input}
                   secureTextEntry
                   autoCapitalize="none"
                   autoComplete="password"
+                  editable={!loading}
                 />
                 <Pressable
                   onPress={handleForgotPassword}
@@ -129,7 +173,9 @@ export default function LoginScreen() {
                   { opacity: pressed ? 0.9 : 1 },
                 ]}
               >
-                <Text style={styles.loginButtonText}>Login to Mid</Text>
+                <Text style={styles.loginButtonText}>
+                  {loading ? 'Logging in...' : 'Login to Mid'}
+                </Text>
               </Pressable>
 
               {/* Create Account Link */}
@@ -295,6 +341,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.secondary,
+  },
+  errorContainer: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: colors.destructive,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: colors.destructive,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 
