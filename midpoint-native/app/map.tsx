@@ -11,24 +11,22 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { WebView } from "react-native-webview";
 import { environment } from "../config/environment";
 import {
   ArrowLeft,
   MapPin,
   Star,
-  Users,
   Share2,
   Navigation,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react-native";
-import { Avatar, AvatarFallback } from "../components/ui/Avatar";
 import { successHaptic } from "../utils/haptics";
 import { colors, colorOpacity } from "../constants/theme";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function MidpointMapPage() {
   const params = useLocalSearchParams<{
@@ -39,6 +37,8 @@ export default function MidpointMapPage() {
     ? JSON.parse(params.midpointData)
     : null;
   const activity = params.activity || "restaurants";
+
+  const [sheetExpanded, setSheetExpanded] = React.useState(false);
 
   // Default center (San Francisco) - will be updated with actual midpoint data
   const center =
@@ -260,182 +260,238 @@ export default function MidpointMapPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.content}>
-        {/* Header Section with Gradient */}
-        <LinearGradient
-          colors={colors.gradients.header}
-          style={styles.headerSection}
-        >
+        {/* Minimal Header - Floating over map */}
+        <View style={styles.minimalHeader}>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
-              styles.backButton,
-              { opacity: pressed ? 0.8 : 1 },
+              styles.backButtonMinimal,
+              { opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <ArrowLeft size={24} color={colors.icon.white} />
+            <ArrowLeft size={24} color={colors.foreground} />
           </Pressable>
-
-          <View style={styles.headerContent}>
-            <View style={styles.iconContainer}>
-              <MapPin size={28} color={colors.icon.white} strokeWidth={2} />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Midpoint Found</Text>
-              <Text style={styles.headerSubtitle}>
-                Central location results
-              </Text>
-            </View>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.minimalHeaderTitle} numberOfLines={1}>
+              Midpoint Found
+            </Text>
           </View>
-        </LinearGradient>
-
-        {/* Body Section */}
-        <ScrollView
-          style={styles.bodySection}
-          contentContainerStyle={styles.bodyScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Map Visualization Card */}
-          <View style={styles.mapCard}>
-            {/* People Nearby Badge */}
-            <View style={styles.peopleBadge}>
-              <Users size={14} color={colors.icon.white} />
-              <Text style={styles.peopleBadgeText}>10 people nearby</Text>
+          {places.length > 0 && (
+            <View style={styles.placesCountBadge}>
+              <Text style={styles.placesCountText}>{places.length}</Text>
             </View>
+          )}
+        </View>
 
-            {/* Google Maps WebView */}
-            <WebView
-              source={{ html: mapHtml }}
-              style={styles.map}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              scalesPageToFit={true}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              originWhitelist={["*"]}
-              mixedContentMode="always"
-              onError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error("WebView error:", nativeEvent);
-              }}
-              onHttpError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error("WebView HTTP error:", nativeEvent.statusCode);
-              }}
-              onLoadEnd={() => {
-                console.log("🗺️ Map WebView loaded");
-              }}
-            />
-          </View>
+        {/* Full Screen Map */}
+        <View style={styles.mapContainer}>
+          <WebView
+            source={{ html: mapHtml }}
+            style={styles.map}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            scalesPageToFit={true}
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            originWhitelist={["*"]}
+            mixedContentMode="always"
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.error("WebView error:", nativeEvent);
+            }}
+            onHttpError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.error("WebView HTTP error:", nativeEvent.statusCode);
+            }}
+            onLoadEnd={() => {
+              console.log("🗺️ Map WebView loaded");
+            }}
+          />
+        </View>
 
-          {/* Nearby Places Section */}
-          <View style={styles.restaurantsSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Nearby Places</Text>
-              <View style={styles.placesBadge}>
-                <Text style={styles.placesBadgeText}>
-                  {places.length} places
-                </Text>
-              </View>
-            </View>
+        {/* Floating Places Sheet at Bottom */}
+        {places.length > 0 && (
+          <View
+            style={[
+              styles.placesSheet,
+              !sheetExpanded && styles.placesSheetCollapsed,
+            ]}
+          >
+            <View style={styles.placesSheetContent}>
+              {/* Drag Handle - Pressable to toggle */}
+              <Pressable
+                onPress={() => {
+                  setSheetExpanded(!sheetExpanded);
+                  successHaptic();
+                }}
+                style={styles.dragHandleContainer}
+              >
+                <View style={styles.dragHandle} />
+                {sheetExpanded ? (
+                  <ChevronDown
+                    size={20}
+                    color={colors.icon.muted}
+                    style={styles.chevronIcon}
+                  />
+                ) : (
+                  <ChevronUp
+                    size={20}
+                    color={colors.icon.muted}
+                    style={styles.chevronIcon}
+                  />
+                )}
+              </Pressable>
 
-            {/* Place Cards */}
-            {places.length > 0 ? (
-              places.map((place: any, index: number) => (
-                <View
-                  key={place.place_id || index}
-                  style={styles.restaurantCard}
-                >
-                  {/* Place Image */}
-                  {place.photos &&
-                    place.photos.length > 0 &&
-                    place.photos[0].url && (
-                      <Image
-                        source={{ uri: place.photos[0].url }}
-                        style={styles.placeImage}
-                        resizeMode="cover"
-                      />
-                    )}
-
-                  {/* Place Header */}
-                  <View style={styles.restaurantHeader}>
-                    <View style={styles.nameContainer}>
-                      <Text style={styles.restaurantName} numberOfLines={2}>
-                        {place.name || "Unknown Place"}
-                      </Text>
-                      {place.rating && (
-                        <View style={styles.ratingContainer}>
-                          <Star
-                            size={16}
-                            color={colors.primary}
-                            fill={colors.primary}
-                          />
-                          <Text style={styles.ratingText}>
-                            {place.rating.toFixed(1)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {/* Google Maps Link */}
-                    <Pressable
-                      onPress={() => openGoogleMaps(place)}
-                      style={({ pressed }) => [
-                        styles.mapsButton,
-                        { opacity: pressed ? 0.7 : 1 },
-                      ]}
-                    >
-                      <ExternalLink size={20} color={colors.primary} />
-                    </Pressable>
+              {/* Section Header - Fixed and Pressable */}
+              <Pressable
+                onPress={() => {
+                  setSheetExpanded(!sheetExpanded);
+                  successHaptic();
+                }}
+                style={styles.sectionHeader}
+              >
+                <Text style={styles.sectionTitle}>Nearby Places</Text>
+                <View style={styles.sectionHeaderRight}>
+                  <View style={styles.placesBadge}>
+                    <Text style={styles.placesBadgeText}>
+                      {places.length} places
+                    </Text>
                   </View>
-
-                  {/* Place Details */}
-                  {place.address && (
-                    <View style={styles.restaurantDetails}>
-                      <View style={styles.detailRow}>
-                        <MapPin size={16} color={colors.icon.muted} />
-                        <Text style={styles.detailText} numberOfLines={2}>
-                          {place.address}
-                        </Text>
-                      </View>
-                      {place.distance && (
-                        <View style={styles.detailRow}>
-                          <Navigation size={16} color={colors.icon.muted} />
-                          <Text style={styles.detailText}>
-                            {formatDistance(place.distance)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                  {sheetExpanded ? (
+                    <ChevronDown size={20} color={colors.icon.muted} />
+                  ) : (
+                    <ChevronUp size={20} color={colors.icon.muted} />
                   )}
                 </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>
-                  No places found near the midpoint
-                </Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
+              </Pressable>
 
-        {/* Share Button */}
-        <View style={styles.shareButtonContainer}>
-          <Pressable
-            onPress={handleShare}
-            style={({ pressed }) => [
-              styles.shareButton,
-              { opacity: pressed ? 0.9 : 1 },
-            ]}
-          >
-            <Share2 size={20} color={colors.icon.white} />
-            <Text style={styles.shareButtonText}>
-              Share Midpoint with Group
-            </Text>
-          </Pressable>
-        </View>
+              {/* Places List - Scrollable - Only show when expanded */}
+              {sheetExpanded && (
+                <>
+                  <ScrollView
+                    style={styles.placesScrollView}
+                    contentContainerStyle={styles.placesScrollContent}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {/* Place Cards */}
+                    {places.map((place: any, index: number) => (
+                      <View
+                        key={place.place_id || index}
+                        style={styles.restaurantCard}
+                      >
+                        {/* Place Image */}
+                        {place.photos &&
+                          place.photos.length > 0 &&
+                          place.photos[0].url && (
+                            <Image
+                              source={{ uri: place.photos[0].url }}
+                              style={styles.placeImage}
+                              resizeMode="cover"
+                            />
+                          )}
+
+                        {/* Place Header */}
+                        <View style={styles.restaurantHeader}>
+                          <View style={styles.nameContainer}>
+                            <Text
+                              style={styles.restaurantName}
+                              numberOfLines={2}
+                            >
+                              {place.name || "Unknown Place"}
+                            </Text>
+                            {place.rating && (
+                              <View style={styles.ratingContainer}>
+                                <Star
+                                  size={16}
+                                  color={colors.primary}
+                                  fill={colors.primary}
+                                />
+                                <Text style={styles.ratingText}>
+                                  {place.rating.toFixed(1)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {/* Google Maps Link */}
+                          <Pressable
+                            onPress={() => openGoogleMaps(place)}
+                            style={({ pressed }) => [
+                              styles.mapsButton,
+                              { opacity: pressed ? 0.7 : 1 },
+                            ]}
+                          >
+                            <ExternalLink size={20} color={colors.primary} />
+                          </Pressable>
+                        </View>
+
+                        {/* Place Details */}
+                        {place.address && (
+                          <View style={styles.restaurantDetails}>
+                            <View style={styles.detailRow}>
+                              <MapPin size={16} color={colors.icon.muted} />
+                              <Text style={styles.detailText} numberOfLines={2}>
+                                {place.address}
+                              </Text>
+                            </View>
+                            {place.distance && (
+                              <View style={styles.detailRow}>
+                                <Navigation
+                                  size={16}
+                                  color={colors.icon.muted}
+                                />
+                                <Text style={styles.detailText}>
+                                  {formatDistance(place.distance)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {/* Share Button at Bottom of Sheet - Fixed */}
+                  <View style={styles.shareButtonContainer}>
+                    <Pressable
+                      onPress={handleShare}
+                      style={({ pressed }) => [
+                        styles.shareButton,
+                        { opacity: pressed ? 0.9 : 1 },
+                      ]}
+                    >
+                      <Share2 size={20} color={colors.icon.white} />
+                      <Text style={styles.shareButtonText}>
+                        Share Midpoint with Group
+                      </Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Share Button - Only show if no places */}
+        {places.length === 0 && (
+          <View style={styles.bottomShareButtonContainer}>
+            <Pressable
+              onPress={handleShare}
+              style={({ pressed }) => [
+                styles.shareButton,
+                { opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Share2 size={20} color={colors.icon.white} />
+              <Text style={styles.shareButtonText}>
+                Share Midpoint with Group
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -448,96 +504,128 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    position: "relative",
   },
-  headerSection: {
-    paddingTop: 16,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    height: HEADER_HEIGHT,
-    minHeight: 180,
-    maxHeight: 220,
-    justifyContent: "space-between",
+  // Minimal Header - Floating over map
+  minimalHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  backButton: {
+  backButtonMinimal: {
     width: 40,
     height: 40,
     justifyContent: "center",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    flex: 1,
-    justifyContent: "center",
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colorOpacity.white["20"],
-    justifyContent: "center",
     alignItems: "center",
-  },
-  headerTextContainer: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: colors.white,
-    marginBottom: 4,
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colorOpacity.white["80"],
-    fontWeight: "400",
-  },
-  bodySection: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  bodyScrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 100,
-  },
-  mapCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 0,
-    marginBottom: 24,
-    height: 200,
-    position: "relative",
-    overflow: "hidden",
-  },
-  peopleBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: colors.secondary,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    zIndex: 10,
+    marginRight: 8,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  peopleBadgeText: {
+  headerTitleContainer: {
+    flex: 1,
+  },
+  minimalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.foreground,
+  },
+  placesCountBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placesCountText: {
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "600",
     color: colors.white,
+  },
+  // Full Screen Map
+  mapContainer: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
   },
   map: {
     width: "100%",
     height: "100%",
-    minHeight: 200,
-    borderRadius: 12,
     backgroundColor: colorOpacity.secondary["10"],
+  },
+  // Floating Places Sheet
+  placesSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: SCREEN_HEIGHT * 0.65,
+    maxHeight: SCREEN_HEIGHT * 0.65,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 50,
+    overflow: "hidden",
+  },
+  placesSheetCollapsed: {
+    height: 100,
+    maxHeight: 100,
+  },
+  placesSheetContent: {
+    flex: 1,
+    flexDirection: "column",
+    height: "100%",
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingVertical: 8,
+    flexShrink: 0,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  chevronIcon: {
+    marginTop: 4,
+  },
+  placesScrollView: {
+    flex: 1,
+    minHeight: 0,
+  },
+  placesScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   restaurantsSection: {
     marginBottom: 24,
@@ -546,7 +634,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexShrink: 0,
+  },
+  sectionHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 18,
@@ -668,6 +766,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   shareButtonContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 12,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    flexShrink: 0,
+  },
+  bottomShareButtonContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
@@ -678,6 +785,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    zIndex: 50,
   },
   shareButton: {
     width: "100%",
