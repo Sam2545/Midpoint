@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -255,7 +254,7 @@ export default function MidpointMapPage() {
     return `${(distanceMeters / 1000).toFixed(1)} km`;
   };
 
-  const P=Share = () => {
+  const handleShare = () => {
     successHaptic();
     if (midpointData) {
       router.push({
@@ -269,7 +268,7 @@ export default function MidpointMapPage() {
     }
   };
 
-  const handleRestaurantPress = (place: Place) => {
+  const handleRestaurantPress = (place: any) => {
     successHaptic();
     router.push({
       pathname: "/event-detail",
@@ -285,14 +284,18 @@ export default function MidpointMapPage() {
     });
   };
 
+  const [displayedCount, setDisplayedCount] = React.useState(10);
+
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
-    const isNearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+    const isNearBottom =
+      layoutMeasurement.height + contentOffset.y >=
+      contentSize.height - paddingToBottom;
 
     if (isNearBottom && displayedCount < places.length) {
       // Load 10 more places
-      setDisplayedCount((prev) => Math.min(prev + 10, places.length));
+      setDisplayedCount((prev: number) => Math.min(prev + 10, places.length));
     }
   };
 
@@ -417,7 +420,7 @@ export default function MidpointMapPage() {
                     nestedScrollEnabled={true}
                   >
                     {/* Place Cards */}
-                    {places.map((place: any, index: number) => (
+                    {displayedPlaces.map((place: any, index: number) => (
                       <View
                         key={place.place_id || index}
                         style={styles.restaurantCard}
