@@ -4,16 +4,23 @@ export class AuthService {
   // Sign up a new user - Direct database insert
   static async signUp(userData: RegisterData) {
     try {
-      // Check if user already exists
-      const { exists } = await this.checkUserExists(userData.email)
-      if (exists) {
+      // Check if user already exists by email
+      const { exists: emailExists } = await this.checkUserExists(userData.email)
+      if (emailExists) {
         return { data: null, error: { message: 'User with this email already exists. Please sign in instead.' } }
+      }
+
+      // Check if username already exists
+      const { exists: usernameExists } = await this.checkUsernameExists(userData.username)
+      if (usernameExists) {
+        return { data: null, error: { message: 'Username is already taken. Please choose a different username.' } }
       }
 
       // Insert user data directly into our custom users table
       const { data, error } = await supabase
         .from('users')
         .insert({
+          username: userData.username,
           first_name: userData.first_name,
           last_name: userData.last_name,
           email: userData.email,
@@ -31,6 +38,7 @@ export class AuthService {
         id: data.id,
         email: data.email,
         user_metadata: {
+          username: data.username,
           first_name: data.first_name,
           last_name: data.last_name,
           phone: data.phone,
@@ -50,14 +58,14 @@ export class AuthService {
     }
   }
 
-  // Simple email and password validation
+  // Simple username and password validation
   static async signIn(credentials: LoginCredentials) {
     try {
       // Query the users table directly
       const { data: users, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', credentials.email)
+        .eq('username', credentials.username)
         .eq('password_hash', credentials.password)
 
       if (error) {
@@ -65,7 +73,7 @@ export class AuthService {
       }
 
       if (!users || users.length === 0) {
-        return { data: null, error: { message: 'Invalid email or password.' } }
+        return { data: null, error: { message: 'Invalid username or password.' } }
       }
 
       const user = users[0];
@@ -75,6 +83,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         user_metadata: {
+          username: user.username,
           first_name: user.first_name,
           last_name: user.last_name,
           phone: user.phone,
@@ -99,8 +108,27 @@ export class AuthService {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, first_name, last_name')
+        .select('id, email, username, first_name, last_name')
         .eq('email', email)
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error
+      }
+
+      return { exists: !!data, user: data, error: null }
+    } catch (error) {
+      return { exists: false, user: null, error }
+    }
+  }
+
+  // Check if username exists
+  static async checkUsernameExists(username: string) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username')
+        .eq('username', username)
         .single()
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned

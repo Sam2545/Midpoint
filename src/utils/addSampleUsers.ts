@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 export const addSampleUsers = async () => {
   const sampleUsers = [
     {
+      username: 'johndoe',
       first_name: 'John',
       last_name: 'Doe',
       email: 'john.doe@example.com',
@@ -14,6 +15,7 @@ export const addSampleUsers = async () => {
       address: '123 Main St, New York, NY 10001'
     },
     {
+      username: 'janesmith',
       first_name: 'Jane',
       last_name: 'Smith',
       email: 'jane.smith@example.com',
@@ -22,6 +24,7 @@ export const addSampleUsers = async () => {
       address: '456 Oak Ave, Los Angeles, CA 90210'
     },
     {
+      username: 'mikejohnson',
       first_name: 'Mike',
       last_name: 'Johnson',
       email: 'mike.johnson@example.com',
