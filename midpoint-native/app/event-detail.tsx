@@ -393,4 +393,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
+  shareButtonContainer: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  shareButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  shareButtonDisabled: {
+    backgroundColor: colors.muted,
+  },
+  shareButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
+  },
 });
