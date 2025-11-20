@@ -1,52 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Calendar, MapPin, Clock, Check, Share2 } from 'lucide-react-native';
+import { ArrowLeft, Calendar, MapPin, Clock, Share2 } from 'lucide-react-native';
 import { colors, colorOpacity } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
 import { EventsService } from '../lib/events';
 import { supabase } from '../lib/supabase';
+import { FriendsService } from '../lib/friends';
+import { AuthService } from '../lib/auth';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-const USER_NAME = 'Sameer';
-
-// Initial poll data
-const initialTimePollOptions = [
-  {
-    time: '2:00 PM',
-    votes: 3,
-    voters: ['Alex', 'Jordan', 'Taylor'],
-  },
-  {
-    time: '3:00 PM',
-    votes: 2,
-    voters: ['Alex', 'Taylor'],
-  },
-  {
-    time: '4:00 PM',
-    votes: 1,
-    voters: ['Jordan'],
-  },
-];
-
-// Default event details (used when no params are provided)
-const defaultEventDetails = {
-  title: 'Coffee Meetup',
-  location: 'Starbucks Downtown',
-  date: 'Oct 25, 2025',
-  time: '2:00 PM',
-  attendeeCount: 3,
-};
-
 export default function EventDetailPage() {
   const params = useLocalSearchParams();
-  const [pollOptions, setPollOptions] = useState(initialTimePollOptions);
   const [isSaving, setIsSaving] = useState(false);
   const [eventSaved, setEventSaved] = useState(false);
+  const [eventDate, setEventDate] = useState('');
+  const [eventTime, setEventTime] = useState('');
   
   // Determine if this is a new event from restaurant selection
   const isNewEvent = params.isNewEvent === 'true';
@@ -60,22 +33,30 @@ export default function EventDetailPage() {
     ? JSON.parse(params.selectedFriends as string)
     : [];
   
-  // Build event details from params or use defaults
+  // Build event details from params
   const eventDetails = {
-    title: restaurantName || defaultEventDetails.title,
-    location: restaurantAddress || defaultEventDetails.location,
-    date: defaultEventDetails.date,
-    time: defaultEventDetails.time,
-    attendeeCount: defaultEventDetails.attendeeCount,
+    title: restaurantName || 'Event',
+    location: restaurantAddress || 'Location TBD',
   };
 
-  // Get a user ID from the database (needed for foreign key constraint)
+  // Get current user ID
   const getCurrentUserId = async (): Promise<string> => {
-    const { data: users } = await supabase.from('users').select('id').limit(1);
-    if (users && users.length > 0) {
-      return users[0].id;
+    // First, check if user ID was set during login (stored in FriendsService)
+    const storedUserId = FriendsService.getCurrentUserId();
+    if (storedUserId) {
+      return storedUserId;
     }
-    throw new Error('No users found in database');
+
+    // Try to get authenticated user from Supabase Auth (if using Supabase Auth)
+    const authResult = await AuthService.getCurrentUser();
+    if (authResult.profile?.id) {
+      // Store it for future use
+      FriendsService.setCurrentUserId(authResult.profile.id);
+      return authResult.profile.id;
+    }
+
+    // If no user found, throw an error instead of using a random user
+    throw new Error('User not logged in. Please log in to continue.');
   };
 
   const handleShareWithFriends = async () => {
@@ -83,6 +64,8 @@ export default function EventDetailPage() {
       Alert.alert("Event Already Saved", "This event has already been shared with your friends.");
       return;
     }
+
+    // Date and time are always set (from Date objects), so no validation needed
 
     successHaptic();
     setIsSaving(true);
@@ -103,6 +86,8 @@ export default function EventDetailPage() {
       console.log("🎯 Saving event:", {
         title: eventDetails.title,
         location: eventDetails.location,
+        date: eventDate,
+        time: eventTime,
         userId: currentUserId,
         selectedFriends,
         friendIds,
@@ -114,7 +99,9 @@ export default function EventDetailPage() {
         eventDetails.title,
         eventDetails.location,
         currentUserId,
-        invitedUserIds
+        invitedUserIds,
+        eventDate.trim() || undefined,
+        eventTime.trim() || undefined
       );
 
       if (error) {
@@ -144,30 +131,6 @@ export default function EventDetailPage() {
     }
   };
 
-  const handleVote = (index: number) => {
-    setPollOptions(prevOptions => {
-      const newOptions = [...prevOptions];
-      const option = { ...newOptions[index] };
-      const hasVoted = option.voters.includes(USER_NAME);
-
-      if (hasVoted) {
-        // Remove vote
-        option.voters = option.voters.filter(voter => voter !== USER_NAME);
-        option.votes = option.votes - 1;
-      } else {
-        // Add vote
-        option.voters = [...option.voters, USER_NAME];
-        option.votes = option.votes + 1;
-      }
-
-      newOptions[index] = option;
-      return newOptions;
-    });
-    successHaptic();
-  };
-
-  const maxVotes = Math.max(...pollOptions.map(option => option.votes), 1);
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -193,7 +156,7 @@ export default function EventDetailPage() {
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>{eventDetails.title}</Text>
               <Text style={styles.headerSubtitle}>
-                {eventDetails.attendeeCount} attendees
+                Set date and time
               </Text>
             </View>
           </View>
@@ -220,100 +183,41 @@ export default function EventDetailPage() {
               </View>
             </View>
 
-            {/* Date */}
+            {/* Date Input */}
             <View style={styles.detailItem}>
               <View style={styles.detailIconContainer}>
                 <Calendar size={20} color={colors.icon.muted} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Date</Text>
-                <Text style={styles.detailValue}>{eventDetails.date}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Oct 25, 2025"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={eventDate}
+                  onChangeText={setEventDate}
+                  editable={!isSaving && !eventSaved}
+                />
               </View>
             </View>
 
-            {/* Time */}
+            {/* Time Input */}
             <View style={styles.detailItem}>
               <View style={styles.detailIconContainer}>
                 <Clock size={20} color={colors.icon.muted} />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Time</Text>
-                <Text style={styles.detailValue}>{eventDetails.time}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., 2:00 PM"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={eventTime}
+                  onChangeText={setEventTime}
+                  editable={!isSaving && !eventSaved}
+                />
               </View>
             </View>
-          </View>
-
-          {/* Time Availability Poll Card */}
-          <View style={styles.card}>
-            <View style={styles.pollHeader}>
-              <Clock size={20} color={colors.primary} />
-              <Text style={styles.cardTitle}>Time Availability Poll</Text>
-            </View>
-
-            {pollOptions.map((option, index) => {
-              const progressPercentage = (option.votes / maxVotes) * 100;
-              const hasVoted = option.voters.includes(USER_NAME);
-              
-              return (
-                <View key={index} style={styles.pollOption}>
-                  <View style={styles.pollOptionHeader}>
-                    <Text style={styles.pollTime}>{option.time}</Text>
-                    <Text style={styles.pollVotes}>{option.votes} {option.votes === 1 ? 'vote' : 'votes'}</Text>
-                  </View>
-                  
-                  {/* Progress Bar */}
-                  <View style={styles.progressBarContainer}>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        { width: `${progressPercentage}%` },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Voter Tags */}
-                  {option.voters.length > 0 && (
-                    <View style={styles.votersContainer}>
-                      {option.voters.map((voter, voterIndex) => (
-                        <View 
-                          key={voterIndex} 
-                          style={[
-                            styles.voterTag,
-                            voter === USER_NAME && styles.voterTagSelf
-                          ]}
-                        >
-                          <Text style={[
-                            styles.voterTagText,
-                            voter === USER_NAME && styles.voterTagTextSelf
-                          ]}>
-                            {voter}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Vote Button */}
-                  <Pressable
-                    onPress={() => handleVote(index)}
-                    style={({ pressed }) => [
-                      styles.voteButton,
-                      hasVoted && styles.voteButtonVoted,
-                      { opacity: pressed ? 0.8 : 1 },
-                    ]}
-                  >
-                    {hasVoted ? (
-                      <>
-                        <Check size={16} color={colors.white} />
-                        <Text style={styles.voteButtonText}>Voted</Text>
-                      </>
-                    ) : (
-                      <Text style={styles.voteButtonText}>Vote</Text>
-                    )}
-                  </Pressable>
-                </View>
-              );
-            })}
           </View>
 
           {/* Share with Friends Button - Only show for new events */}
@@ -423,12 +327,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: 16,
   },
-  pollHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -455,81 +353,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.foreground,
   },
-  pollOption: {
-    marginBottom: 20,
-  },
-  pollOptionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  pollTime: {
+  input: {
     fontSize: 16,
-    fontWeight: '500',
-    color: colors.foreground,
-  },
-  pollVotes: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.mutedForeground,
-  },
-  progressBarContainer: {
-    width: '100%',
-    height: 8,
-    backgroundColor: colors.muted,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 4,
-  },
-  votersContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  voterTag: {
-    backgroundColor: colorOpacity.primary['20'],
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  voterTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.primary,
-  },
-  voterTagSelf: {
-    backgroundColor: colors.primary,
-  },
-  voterTagTextSelf: {
-    color: colors.white,
-  },
-  voteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.secondary,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.secondary,
-  },
-  voteButtonVoted: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  voteButtonText: {
-    fontSize: 14,
     fontWeight: '600',
-    color: colors.white,
+    color: colors.foreground,
+    backgroundColor: colors.inputBackground || colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
   },
   shareButtonContainer: {
     marginTop: 8,

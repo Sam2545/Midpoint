@@ -18,6 +18,8 @@ import {
   ThumbsUp,
   MessageSquare,
   Save,
+  Calendar,
+  Clock,
 } from "lucide-react-native";
 import { Avatar, AvatarFallback } from "../components/ui/Avatar";
 import { Vote } from "../utils/types";
@@ -51,49 +53,22 @@ export default function ConfirmMidpointPage() {
 
   // Get current user ID
   const getCurrentUserId = async (): Promise<string> => {
-    // Try to get authenticated user
+    // First, check if user ID was set during login (stored in FriendsService)
+    const storedUserId = FriendsService.getCurrentUserId();
+    if (storedUserId) {
+      return storedUserId;
+    }
+
+    // Try to get authenticated user from Supabase Auth (if using Supabase Auth)
     const authResult = await AuthService.getCurrentUser();
     if (authResult.profile?.id) {
+      // Store it for future use
+      FriendsService.setCurrentUserId(authResult.profile.id);
       return authResult.profile.id;
     }
 
-    // Fallback: Get the first user from the database
-    try {
-      const { data: users, error } = await supabase
-        .from("users")
-        .select("id")
-        .limit(1);
-
-      if (!error && users && users.length > 0) {
-        return users[0].id;
-      }
-    } catch (err) {
-      console.error("Error getting user from database:", err);
-    }
-
-    // Last resort: Create a temporary user
-    try {
-      const timestamp = Date.now();
-      const { data: newUser, error } = await supabase
-        .from("users")
-        .insert({
-          username: `temp-user-${timestamp}`,
-          email: `temp-${timestamp}@example.com`,
-          first_name: "Temp",
-          last_name: "User",
-          password_hash: "temp-password",
-        })
-        .select("id")
-        .single();
-
-      if (!error && newUser) {
-        return newUser.id;
-      }
-    } catch (err) {
-      console.error("Error creating temp user:", err);
-    }
-
-    throw new Error("Unable to get or create a user ID");
+    // If no user found, throw an error instead of using a random user
+    throw new Error("User not logged in. Please log in to continue.");
   };
 
   // Fetch event data if eventId is provided (viewing existing event)
@@ -446,6 +421,28 @@ export default function ConfirmMidpointPage() {
               </View>
             </View>
 
+            {/* Date and Time Display */}
+            {(event?.date || event?.time) && (
+              <View style={styles.dateTimeSection}>
+                {event.date && (
+                  <View style={styles.dateTimeItem}>
+                    <View style={styles.dateTimeIconContainer}>
+                      <Calendar size={16} color={colors.icon.muted} />
+                    </View>
+                    <Text style={styles.dateTimeText}>{event.date}</Text>
+                  </View>
+                )}
+                {event.time && (
+                  <View style={styles.dateTimeItem}>
+                    <View style={styles.dateTimeIconContainer}>
+                      <Clock size={16} color={colors.icon.muted} />
+                    </View>
+                    <Text style={styles.dateTimeText}>{event.time}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Group Confirmation Progress */}
             <View style={styles.confirmationSection}>
               <View style={styles.confirmationHeader}>
@@ -747,6 +744,29 @@ const styles = StyleSheet.create({
   midpointLabel: {
     fontSize: 12,
     color: colors.primary,
+    fontWeight: "500",
+  },
+  dateTimeSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 12,
+  },
+  dateTimeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateTimeIconContainer: {
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dateTimeText: {
+    fontSize: 14,
+    color: colors.foreground,
     fontWeight: "500",
   },
   confirmationSection: {

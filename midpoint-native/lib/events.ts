@@ -8,7 +8,9 @@ export class EventsService {
     title: string,
     location: string,
     createdBy: string,
-    invitedUserIds: string[]
+    invitedUserIds: string[],
+    date?: string,
+    time?: string
   ): Promise<{ data: Event | null; error: any }> {
     try {
       console.log('📝 EventService.createEvent called with:', {
@@ -16,16 +18,28 @@ export class EventsService {
         location,
         createdBy,
         invitedUserIds,
+        date,
+        time,
       });
 
       // Create the event
+      const eventData: any = {
+        title,
+        location,
+        created_by: createdBy,
+      };
+      
+      // Add date and time if provided
+      if (date) {
+        eventData.date = date;
+      }
+      if (time) {
+        eventData.time = time;
+      }
+
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .insert({
-          title,
-          location,
-          created_by: createdBy,
-        })
+        .insert(eventData)
         .select()
         .single()
 

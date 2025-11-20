@@ -8,6 +8,8 @@ import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
 import { EventsService } from '../lib/events';
 import { supabase } from '../lib/supabase';
+import { FriendsService } from '../lib/friends';
+import { AuthService } from '../lib/auth';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -20,11 +22,22 @@ export default function EventsPage() {
 
   // Get current user ID
   const getCurrentUserId = async (): Promise<string> => {
-    const { data: users } = await supabase.from('users').select('id').limit(1);
-    if (users && users.length > 0) {
-      return users[0].id;
+    // First, check if user ID was set during login (stored in FriendsService)
+    const storedUserId = FriendsService.getCurrentUserId();
+    if (storedUserId) {
+      return storedUserId;
     }
-    throw new Error('No users found in database');
+
+    // Try to get authenticated user from Supabase Auth (if using Supabase Auth)
+    const authResult = await AuthService.getCurrentUser();
+    if (authResult.profile?.id) {
+      // Store it for future use
+      FriendsService.setCurrentUserId(authResult.profile.id);
+      return authResult.profile.id;
+    }
+
+    // If no user found, throw an error instead of using a random user
+    throw new Error('User not logged in. Please log in to continue.');
   };
 
   const fetchEvents = async () => {
