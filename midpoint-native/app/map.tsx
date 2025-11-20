@@ -32,11 +32,15 @@ export default function MidpointMapPage() {
   const params = useLocalSearchParams<{
     activity?: string;
     midpointData?: string;
+    selectedFriends?: string; // JSON stringified array of friend IDs
   }>();
   const midpointData = params.midpointData
     ? JSON.parse(params.midpointData)
     : null;
   const activity = params.activity || "restaurants";
+  const selectedFriends = params.selectedFriends 
+    ? JSON.parse(params.selectedFriends) 
+    : [];
 
   const [sheetExpanded, setSheetExpanded] = React.useState(false);
 
@@ -256,16 +260,15 @@ export default function MidpointMapPage() {
 
   const handleShare = () => {
     successHaptic();
-    if (midpointData) {
-      router.push({
-        pathname: "/poll",
-        params: {
-          midpointData: JSON.stringify(midpointData),
-        },
-      });
-    } else {
-      router.push("/poll");
-    }
+    // Pass midpoint data, activity, and selected friends to poll page
+    router.push({
+      pathname: "/poll",
+      params: {
+        midpointData: params.midpointData || JSON.stringify(midpointData),
+        activity: activity,
+        selectedFriends: params.selectedFriends || JSON.stringify([]),
+      },
+    });
   };
 
   const handleRestaurantPress = (place: any) => {

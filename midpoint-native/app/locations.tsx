@@ -27,7 +27,7 @@ import { colors, colorOpacity } from "../constants/theme";
 import PlacesService from "../services/PlacesService";
 import { getApiBaseUrl } from "../utils/network";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
 export default function LocationsPage() {
@@ -69,7 +69,11 @@ export default function LocationsPage() {
       console.log(`📍 Getting place details for ${id}:`, place.place_id);
       // Get coordinates from place details
       const placeDetails = await PlacesService.getPlaceDetails(place.place_id);
-      if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+      if (
+        placeDetails &&
+        placeDetails.geometry &&
+        placeDetails.geometry.location
+      ) {
         const coords = {
           lat: placeDetails.geometry.location.lat,
           lng: placeDetails.geometry.location.lng,
@@ -175,6 +179,7 @@ export default function LocationsPage() {
           params: {
             activity: activity,
             midpointData: JSON.stringify(data),
+            selectedFriends: JSON.stringify(selectedFriends),
           },
         });
       } else {
@@ -320,18 +325,13 @@ export default function LocationsPage() {
                 ]}
               >
                 <Plus size={18} color={colors.primary} />
-                <Text style={styles.addMoreButtonText}>
-                  Add More Location
-                </Text>
+                <Text style={styles.addMoreButtonText}>Add More Location</Text>
               </Pressable>
             </View>
 
             {/* Activity Selector */}
             <View style={styles.section}>
-              <ActivitySelector
-                selected={activity}
-                onSelect={setActivity}
-              />
+              <ActivitySelector selected={activity} onSelect={setActivity} />
             </View>
 
             {/* Search Button */}
@@ -346,9 +346,7 @@ export default function LocationsPage() {
                 ]}
               >
                 <Search size={20} color={colors.icon.white} />
-                <Text style={styles.findMidpointButtonText}>
-                  Find Midpoint
-                </Text>
+                <Text style={styles.findMidpointButtonText}>Find Midpoint</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -376,45 +374,45 @@ const styles = StyleSheet.create({
     height: HEADER_HEIGHT,
     minHeight: 180,
     maxHeight: 220,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   backButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    justifyContent: "center",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
   headerContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: colorOpacity.white['20'],
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colorOpacity.white["20"],
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTextContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.white,
     marginBottom: 4,
     letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: colorOpacity.white['80'],
-    fontWeight: '400',
+    color: colorOpacity.white["80"],
+    fontWeight: "400",
   },
   bodySection: {
     flex: 1,
@@ -447,16 +445,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   avatarContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   meIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colorOpacity.secondary['20'],
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colorOpacity.secondary["20"],
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 14,
@@ -484,35 +482,35 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   addMoreButton: {
-    width: '100%',
+    width: "100%",
     height: 56,
     backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingHorizontal: 20,
   },
   addMoreButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   findMidpointButton: {
-    width: '100%',
+    width: "100%",
     height: 56,
     backgroundColor: colors.primary,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingHorizontal: 20,
     shadowColor: colors.black,
@@ -526,7 +524,7 @@ const styles = StyleSheet.create({
   },
   findMidpointButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.white,
   },
 });
