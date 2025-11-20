@@ -1,50 +1,106 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Calendar, MapPin, Clock, Users } from 'lucide-react-native';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, ThumbsUp } from 'lucide-react-native';
 import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
+import { EventsService } from '../lib/events';
+import { supabase } from '../lib/supabase';
+import { FriendsService } from '../lib/friends';
+import { AuthService } from '../lib/auth';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-// Mock events data
-const mockEvents = [
-  {
-    id: '1',
-    title: 'Coffee Meetup',
-    location: 'Starbucks Downtown',
-    date: 'Oct 25, 2025',
-    time: '2:00 PM',
-    participants: ['Alex', 'Jordan', 'Taylor'],
-    participantCount: 3,
-  },
-  {
-    id: '2',
-    title: 'Dinner Plans',
-    location: 'The Italian Place',
-    date: 'Oct 27, 2025',
-    time: '7:00 PM',
-    participants: ['Sam', 'Morgan'],
-    participantCount: 2,
-  },
-  {
-    id: '3',
-    title: 'Weekend Brunch',
-    location: 'Sunny Side Cafe',
-    date: 'Oct 28, 2025',
-    time: '10:00 AM',
-    participants: ['Alex', 'Jordan', 'Taylor', 'Sam'],
-    participantCount: 4,
-  },
-];
-
 export default function EventsPage() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [eventApprovals, setEventApprovals] = useState<Record<string, { accepted: number; total: number }>>({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Get current user ID
+  const getCurrentUserId = async (): Promise<string> => {
+    // First, check if user ID was set during login (stored in FriendsService)
+    const storedUserId = FriendsService.getCurrentUserId();
+    if (storedUserId) {
+      return storedUserId;
+    }
+
+    // Try to get authenticated user from Supabase Auth (if using Supabase Auth)
+    const authResult = await AuthService.getCurrentUser();
+    if (authResult.profile?.id) {
+      // Store it for future use
+      FriendsService.setCurrentUserId(authResult.profile.id);
+      return authResult.profile.id;
+    }
+
+    // If no user found, throw an error instead of using a random user
+    throw new Error('User not logged in. Please log in to continue.');
+  };
+
+  const fetchEvents = async () => {
+    try {
+      const userId = await getCurrentUserId();
+      const { data, error } = await EventsService.getUserEvents(userId);
+
+      if (error) {
+        console.error('Error fetching events:', error);
+        setEvents([]);
+      } else {
+        const eventsList = data || [];
+        setEvents(eventsList);
+
+        // Fetch approval counts for each event
+        const approvals: Record<string, { accepted: number; total: number }> = {};
+        
+        for (const event of eventsList) {
+          try {
+            const { data: invitations, error: invError } = await supabase
+              .from('event_invitations')
+              .select('status')
+              .eq('event_id', event.id);
+
+            if (!invError && invitations) {
+              const accepted = invitations.filter(inv => inv.status === 'accepted').length;
+              approvals[event.id] = {
+                accepted,
+                total: invitations.length,
+              };
+            }
+          } catch (err) {
+            console.error(`Error fetching approvals for event ${event.id}:`, err);
+            approvals[event.id] = { accepted: 0, total: 0 };
+          }
+        }
+
+        setEventApprovals(approvals);
+      }
+    } catch (error) {
+      console.error('Error getting user ID:', error);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchEvents();
+  };
+
   const handleEventPress = (eventId: string) => {
     successHaptic();
-    router.push('/event-detail');
+    router.push({
+      pathname: '/poll',
+      params: { eventId },
+    });
   };
 
   return (
@@ -72,7 +128,7 @@ export default function EventsPage() {
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Your Events</Text>
               <Text style={styles.headerSubtitle}>
-                {mockEvents.length} upcoming events
+                {loading ? 'Loading...' : `${events.length} ${events.length === 1 ? 'event' : 'events'}`}
               </Text>
             </View>
           </View>
@@ -83,53 +139,67 @@ export default function EventsPage() {
           style={styles.bodySection}
           contentContainerStyle={styles.bodyScrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
-          {mockEvents.map((event) => (
-            <Pressable
-              key={event.id}
-              onPress={() => handleEventPress(event.id)}
-              style={({ pressed }) => [
-                styles.eventCard,
-                { opacity: pressed ? 0.9 : 1 },
-              ]}
-            >
-              {/* Event Header */}
-              <View style={styles.eventHeader}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <View style={styles.participantCountContainer}>
-                  <Users size={16} color={colors.icon.muted} />
-                  <Text style={styles.participantCount}>{event.participantCount}</Text>
-                </View>
-              </View>
+          {loading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>Loading events...</Text>
+            </View>
+          ) : events.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Calendar size={48} color={colors.icon.muted} />
+              <Text style={styles.emptyStateText}>No events yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Create your first event to get started!
+              </Text>
+            </View>
+          ) : (
+            events.map((event) => {
+              const approval = eventApprovals[event.id] || { accepted: 0, total: 0 };
+              return (
+                <Pressable
+                  key={event.id}
+                  onPress={() => handleEventPress(event.id)}
+                  style={({ pressed }) => [
+                    styles.eventCard,
+                    { opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  {/* Event Header */}
+                  <View style={styles.eventHeader}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    {/* Approval Badge */}
+                    {approval.total > 0 && (
+                      <View style={styles.approvalBadge}>
+                        <ThumbsUp size={14} color={colors.secondary} />
+                        <Text style={styles.approvalText}>
+                          {approval.accepted}/{approval.total}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
 
-              {/* Event Details */}
-              <View style={styles.eventDetails}>
-                <View style={styles.detailRow}>
-                  <MapPin size={16} color={colors.icon.muted} />
-                  <Text style={styles.detailText}>{event.location}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Calendar size={16} color={colors.icon.muted} />
-                  <Text style={styles.detailText}>{event.date}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Clock size={16} color={colors.icon.muted} />
-                  <Text style={styles.detailText}>{event.time}</Text>
-                </View>
-              </View>
-
-              {/* Participant Tags */}
-              {event.participants.length > 0 && (
-                <View style={styles.participantsContainer}>
-                  {event.participants.map((participant, index) => (
-                    <View key={index} style={styles.participantTag}>
-                      <Text style={styles.participantTagText}>{participant}</Text>
+                  {/* Event Details */}
+                  <View style={styles.eventDetails}>
+                    <View style={styles.detailRow}>
+                      <MapPin size={16} color={colors.icon.muted} />
+                      <Text style={styles.detailText}>{event.location}</Text>
                     </View>
-                  ))}
-                </View>
-              )}
-            </Pressable>
-          ))}
+                    {event.created_at && (
+                      <View style={styles.detailRow}>
+                        <Calendar size={16} color={colors.icon.muted} />
+                        <Text style={styles.detailText}>
+                          {new Date(event.created_at).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -225,6 +295,21 @@ const styles = StyleSheet.create({
     color: colors.primary,
     flex: 1,
   },
+  approvalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colorOpacity.secondary['20'],
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  approvalText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.secondary,
+  },
   participantCountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -268,6 +353,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.primary,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.foreground,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: 'center',
   },
 });
 

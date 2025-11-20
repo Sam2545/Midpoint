@@ -8,7 +8,9 @@ export class EventsService {
     title: string,
     location: string,
     createdBy: string,
-    invitedUserIds: string[]
+    invitedUserIds: string[],
+    date?: string,
+    time?: string
   ): Promise<{ data: Event | null; error: any }> {
     try {
       console.log('📝 EventService.createEvent called with:', {
@@ -16,16 +18,28 @@ export class EventsService {
         location,
         createdBy,
         invitedUserIds,
+        date,
+        time,
       });
 
       // Create the event
+      const eventData: any = {
+        title,
+        location,
+        created_by: createdBy,
+      };
+      
+      // Add date and time if provided
+      if (date) {
+        eventData.date = date;
+      }
+      if (time) {
+        eventData.time = time;
+      }
+
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .insert({
-          title,
-          location,
-          created_by: createdBy,
-        })
+        .insert(eventData)
         .select()
         .single()
 
@@ -152,19 +166,89 @@ export class EventsService {
   }
 
   /**
-   * Get all events for a user (created by or invited to)
+   * Update invitation status (accept/decline)
    */
-  static async getUserEvents(userId: string): Promise<{ data: Event[] | null; error: any }> {
+  static async updateInvitationStatus(
+    eventId: string,
+    userId: string,
+    status: 'accepted' | 'declined'
+  ): Promise<{ data: EventInvitation | null; error: any }> {
     try {
       const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .or(`created_by.eq.${userId},id.in.(SELECT event_id FROM event_invitations WHERE user_id.eq.${userId})`)
-        .order('created_at', { ascending: false })
+        .from('event_invitations')
+        .update({
+          status,
+          responded_at: new Date().toISOString(),
+        })
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .select()
+        .single()
 
       if (error) throw error
       return { data, error: null }
     } catch (error: any) {
+      return { data: null, error: { message: error.message || 'Failed to update invitation status' } }
+    }
+  }
+
+  /**
+   * Get all events for a user (created by or invited to)
+   */
+  static async getUserEvents(userId: string): Promise<{ data: Event[] | null; error: any }> {
+    try {
+      // Get events where user is creator
+      const { data: createdEvents, error: createdError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('created_by', userId)
+        .order('created_at', { ascending: false })
+
+      if (createdError) {
+        console.error('Error fetching created events:', createdError)
+      }
+
+      // Get events where user is invited
+      const { data: invitations, error: inviteError } = await supabase
+        .from('event_invitations')
+        .select('event_id')
+        .eq('user_id', userId)
+
+      if (inviteError) {
+        console.error('Error fetching invitations:', inviteError)
+        // Return created events even if invitations fail
+        return { data: createdEvents || [], error: null }
+      }
+
+      const invitedEventIds = invitations?.map(inv => inv.event_id) || []
+      
+      let invitedEvents: any[] = []
+      if (invitedEventIds.length > 0) {
+        const { data: invited, error: invitedError } = await supabase
+          .from('events')
+          .select('*')
+          .in('id', invitedEventIds)
+          .order('created_at', { ascending: false })
+
+        if (!invitedError && invited) {
+          invitedEvents = invited
+        }
+      }
+
+      // Combine and deduplicate events
+      const allEvents = [...(createdEvents || []), ...invitedEvents]
+      const uniqueEvents = allEvents.filter((event, index, self) =>
+        index === self.findIndex(e => e.id === event.id)
+      )
+
+      // Sort by created_at descending
+      const sortedEvents = uniqueEvents.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+
+      return { data: sortedEvents, error: null }
+    } catch (error: any) {
+      console.error('Error in getUserEvents:', error)
       return { data: null, error: { message: error.message || 'Failed to get events' } }
     }
   }

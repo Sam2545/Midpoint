@@ -28,6 +28,8 @@ export interface Event {
   created_by: string;
   created_at: string;
   updated_at: string;
+  date?: string;
+  time?: string;
 }
 
 export interface EventInvitation {
