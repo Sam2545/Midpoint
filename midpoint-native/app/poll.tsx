@@ -24,6 +24,8 @@ import { Vote } from "../utils/types";
 import { successHaptic } from "../utils/haptics";
 import { colors, colorOpacity } from "../constants/theme";
 import { EventsService } from "../lib/events";
+import { AuthService } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 import { Friend } from "../utils/types";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -81,12 +83,52 @@ export default function ConfirmMidpointPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [eventSaved, setEventSaved] = useState(false);
 
-  // TODO: Get current user ID from auth/storage
-  // For now, using a placeholder - replace with actual user ID retrieval
+  // Get current user ID - try auth first, then fallback to first user in DB
   const getCurrentUserId = async (): Promise<string> => {
-    // TODO: Replace with actual user ID from auth/storage
-    // This is a placeholder - you'll need to implement user authentication
-    return "current-user-id-placeholder";
+    // Try to get authenticated user
+    const authResult = await AuthService.getCurrentUser();
+    if (authResult.profile?.id) {
+      return authResult.profile.id;
+    }
+
+    // Fallback: Get the first user from the database
+    try {
+      const { data: users, error } = await supabase
+        .from("users")
+        .select("id")
+        .limit(1);
+
+      if (!error && users && users.length > 0) {
+        return users[0].id;
+      }
+    } catch (err) {
+      console.error("Error getting user from database:", err);
+    }
+
+    // Last resort: Create a temporary user
+    try {
+      const timestamp = Date.now();
+      const { data: newUser, error } = await supabase
+        .from("users")
+        .insert({
+          username: `temp-user-${timestamp}`,
+          email: `temp-${timestamp}@example.com`,
+          first_name: "Temp",
+          last_name: "User",
+          password_hash: "temp-password", // Required field
+        })
+        .select("id")
+        .single();
+
+      if (!error && newUser) {
+        return newUser.id;
+      }
+    } catch (err) {
+      console.error("Error creating temp user:", err);
+    }
+
+    // If all else fails, throw an error
+    throw new Error("Unable to get or create a user ID");
   };
 
   const handleConfirm = () => {

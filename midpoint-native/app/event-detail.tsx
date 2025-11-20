@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Calendar, MapPin, Clock, Check } from 'lucide-react-native';
+import { ArrowLeft, Calendar, MapPin, Clock, Check, Share2 } from 'lucide-react-native';
 import { colors, colorOpacity } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
+import { EventsService } from '../lib/events';
+import { supabase } from '../lib/supabase';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -43,6 +45,8 @@ const defaultEventDetails = {
 export default function EventDetailPage() {
   const params = useLocalSearchParams();
   const [pollOptions, setPollOptions] = useState(initialTimePollOptions);
+  const [isSaving, setIsSaving] = useState(false);
+  const [eventSaved, setEventSaved] = useState(false);
   
   // Determine if this is a new event from restaurant selection
   const isNewEvent = params.isNewEvent === 'true';
@@ -51,6 +55,11 @@ export default function EventDetailPage() {
   const restaurantName = params.restaurantName as string | undefined;
   const restaurantAddress = params.restaurantAddress as string | undefined;
   
+  // Parse selected friends
+  const selectedFriends = params.selectedFriends
+    ? JSON.parse(params.selectedFriends as string)
+    : [];
+  
   // Build event details from params or use defaults
   const eventDetails = {
     title: restaurantName || defaultEventDetails.title,
@@ -58,6 +67,81 @@ export default function EventDetailPage() {
     date: defaultEventDetails.date,
     time: defaultEventDetails.time,
     attendeeCount: defaultEventDetails.attendeeCount,
+  };
+
+  // Get a user ID from the database (needed for foreign key constraint)
+  const getCurrentUserId = async (): Promise<string> => {
+    const { data: users } = await supabase.from('users').select('id').limit(1);
+    if (users && users.length > 0) {
+      return users[0].id;
+    }
+    throw new Error('No users found in database');
+  };
+
+  const handleShareWithFriends = async () => {
+    if (eventSaved) {
+      Alert.alert("Event Already Saved", "This event has already been shared with your friends.");
+      return;
+    }
+
+    successHaptic();
+    setIsSaving(true);
+
+    try {
+      const currentUserId = await getCurrentUserId();
+      
+      // Handle selectedFriends - could be array of IDs or array of objects with id property
+      const friendIds = Array.isArray(selectedFriends)
+        ? selectedFriends.map((friend: any) => {
+            if (typeof friend === "string") return friend;
+            return friend?.id || friend;
+          })
+        : [];
+
+      const invitedUserIds = [currentUserId, ...friendIds];
+
+      console.log("🎯 Saving event:", {
+        title: eventDetails.title,
+        location: eventDetails.location,
+        userId: currentUserId,
+        selectedFriends,
+        friendIds,
+        invitedUserIds,
+      });
+
+      // Create event in database
+      const { data: event, error } = await EventsService.createEvent(
+        eventDetails.title,
+        eventDetails.location,
+        currentUserId,
+        invitedUserIds
+      );
+
+      if (error) {
+        console.error("❌ Error creating event:", error);
+        Alert.alert(
+          "Error",
+          error.message || "Failed to save event. Please try again."
+        );
+        setIsSaving(false);
+        return;
+      }
+
+      if (event) {
+        setEventSaved(true);
+        console.log("✅ Event created successfully:", event.id);
+        Alert.alert(
+          "Event Saved!",
+          "Your event has been saved and invitations have been sent.",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (error: any) {
+      console.error("❌ Exception saving event:", error);
+      Alert.alert("Error", "Failed to save event. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleVote = (index: number) => {
@@ -231,6 +315,30 @@ export default function EventDetailPage() {
               );
             })}
           </View>
+
+          {/* Share with Friends Button - Only show for new events */}
+          {isNewEvent && (
+            <View style={styles.shareButtonContainer}>
+              <Pressable
+                onPress={handleShareWithFriends}
+                disabled={isSaving || eventSaved}
+                style={({ pressed }) => [
+                  styles.shareButton,
+                  (isSaving || eventSaved) && styles.shareButtonDisabled,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Share2 size={20} color={colors.icon.white} />
+                <Text style={styles.shareButtonText}>
+                  {eventSaved
+                    ? "Event Shared"
+                    : isSaving
+                    ? "Saving..."
+                    : "Share with Friends"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -420,6 +528,34 @@ const styles = StyleSheet.create({
   },
   voteButtonText: {
     fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  shareButtonContainer: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  shareButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  shareButtonDisabled: {
+    backgroundColor: colors.muted,
+  },
+  shareButtonText: {
+    fontSize: 18,
     fontWeight: '600',
     color: colors.white,
   },

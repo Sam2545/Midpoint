@@ -11,6 +11,13 @@ export class EventsService {
     invitedUserIds: string[]
   ): Promise<{ data: Event | null; error: any }> {
     try {
+      console.log('📝 EventService.createEvent called with:', {
+        title,
+        location,
+        createdBy,
+        invitedUserIds,
+      });
+
       // Create the event
       const { data: event, error: eventError } = await supabase
         .from('events')
@@ -22,10 +29,21 @@ export class EventsService {
         .select()
         .single()
 
-      if (eventError) throw eventError
+      if (eventError) {
+        console.error('❌ Supabase error creating event:', eventError);
+        console.error('Error code:', eventError.code);
+        console.error('Error message:', eventError.message);
+        console.error('Error details:', eventError.details);
+        console.error('Error hint:', eventError.hint);
+        throw eventError;
+      }
+      
       if (!event) {
+        console.error('❌ No event returned from insert');
         return { data: null, error: { message: 'Failed to create event' } }
       }
+
+      console.log('✅ Event created in database:', event.id);
 
       // Create invitations for all invited users (including creator if they're in the list)
       const invitations = invitedUserIds.map((userId) => ({

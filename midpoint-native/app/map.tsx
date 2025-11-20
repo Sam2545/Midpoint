@@ -38,11 +38,11 @@ export default function MidpointMapPage() {
     ? JSON.parse(params.midpointData)
     : null;
   const activity = params.activity || "restaurants";
-  const selectedFriends = params.selectedFriends 
-    ? JSON.parse(params.selectedFriends) 
+  const selectedFriends = params.selectedFriends
+    ? JSON.parse(params.selectedFriends)
     : [];
 
-  const [sheetExpanded, setSheetExpanded] = React.useState(false);
+  const [sheetExpanded, setSheetExpanded] = React.useState(true);
 
   // Default center (San Francisco) - will be updated with actual midpoint data
   const center =
@@ -281,8 +281,9 @@ export default function MidpointMapPage() {
         restaurantPlaceId: place.place_id,
         restaurantCoordinates: JSON.stringify(place.coordinates),
         restaurantRating: place.rating?.toString() || "",
-        restaurantDistance: place.distance.toString(),
+        restaurantDistance: place.distance?.toString() || "",
         isNewEvent: "true",
+        selectedFriends: params.selectedFriends || JSON.stringify([]),
       },
     });
   };
@@ -424,9 +425,13 @@ export default function MidpointMapPage() {
                   >
                     {/* Place Cards */}
                     {displayedPlaces.map((place: any, index: number) => (
-                      <View
+                      <Pressable
                         key={place.place_id || index}
-                        style={styles.restaurantCard}
+                        onPress={() => handleRestaurantPress(place)}
+                        style={({ pressed }) => [
+                          styles.restaurantCard,
+                          { opacity: pressed ? 0.8 : 1 },
+                        ]}
                       >
                         {/* Place Image */}
                         {place.photos &&
@@ -495,7 +500,7 @@ export default function MidpointMapPage() {
                             )}
                           </View>
                         )}
-                      </View>
+                      </Pressable>
                     ))}
                   </ScrollView>
 
