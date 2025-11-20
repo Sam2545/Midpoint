@@ -27,63 +27,29 @@ import { EventsService } from "../lib/events";
 import { AuthService } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { Friend } from "../utils/types";
+import { FriendsService } from "../lib/friends";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
-// Mock data
-const mockVotes: Vote[] = [
-  {
-    userId: "1",
-    userName: "Sarah Johnson",
-    status: "confirmed",
-    timestamp: "2 mins ago",
-  },
-  {
-    userId: "2",
-    userName: "Mike Chen",
-    status: "suggested",
-    suggestion: "How about The Oak Restaurant instead? It's closer to me.",
-    timestamp: "5 mins ago",
-  },
-];
-
 export default function ConfirmMidpointPage() {
   const params = useLocalSearchParams<{
+    eventId?: string;
     midpointData?: string;
     activity?: string;
     selectedFriends?: string; // JSON stringified array of friend IDs
   }>();
 
-  // Parse midpoint data from params
-  const midpointData = params.midpointData
-    ? JSON.parse(params.midpointData)
-    : null;
-  const activity = params.activity || "restaurants";
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [myInvitationStatus, setMyInvitationStatus] = useState<
+    "accepted" | "declined" | "pending" | null
+  >(null);
+  const [allInvitations, setAllInvitations] = useState<any[]>([]);
+  const [friendInvitations, setFriendInvitations] = useState<any[]>([]);
 
-  // Get selected place (use first place from midpoint data, or default)
-  const selectedPlace = midpointData?.places?.[0] || null;
-  const midpointLocation = {
-    name: selectedPlace?.name || "Midpoint Location",
-    address:
-      selectedPlace?.address ||
-      midpointData?.midpoint_address ||
-      "Address not available",
-  };
-
-  // Parse selected friends (for now, we'll use empty array if not provided)
-  // TODO: Get this from params when map.tsx is updated to pass friends
-  const selectedFriends: Friend[] = params.selectedFriends
-    ? JSON.parse(params.selectedFriends)
-    : [];
-
-  const [votes, setVotes] = useState<Vote[]>(mockVotes);
-  const [myVote, setMyVote] = useState<"confirmed" | "suggested" | null>(null);
-  const [mySuggestion, setMySuggestion] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [eventSaved, setEventSaved] = useState(false);
-
-  // Get current user ID - try auth first, then fallback to first user in DB
+  // Get current user ID
   const getCurrentUserId = async (): Promise<string> => {
     // Try to get authenticated user
     const authResult = await AuthService.getCurrentUser();
@@ -115,7 +81,7 @@ export default function ConfirmMidpointPage() {
           email: `temp-${timestamp}@example.com`,
           first_name: "Temp",
           last_name: "User",
-          password_hash: "temp-password", // Required field
+          password_hash: "temp-password",
         })
         .select("id")
         .single();
@@ -127,21 +93,237 @@ export default function ConfirmMidpointPage() {
       console.error("Error creating temp user:", err);
     }
 
-    // If all else fails, throw an error
     throw new Error("Unable to get or create a user ID");
   };
 
-  const handleConfirm = () => {
-    successHaptic();
-    setMyVote("confirmed");
-    setMySuggestion("");
+  // Fetch event data if eventId is provided (viewing existing event)
+  useEffect(() => {
+    const fetchEventData = async () => {
+      if (params.eventId) {
+        try {
+          setLoading(true);
+
+          // Fetch event with details
+          const { data: eventData, error } =
+            await EventsService.getEventWithDetails(params.eventId);
+
+          if (error) {
+            console.error("Error fetching event:", error);
+            Alert.alert("Error", "Failed to load event details.");
+            setLoading(false);
+            return;
+          }
+
+          if (eventData) {
+            setEvent(eventData);
+            setAllInvitations(eventData.invitations || []);
+
+            // Get current user ID and friends
+            const currentUserId = await getCurrentUserId();
+
+            // Get friends list
+            const { data: friendsData } = await FriendsService.getFriends();
+            if (friendsData) {
+              // Map friends to include name property
+              const mappedFriends: Friend[] = friendsData.map((f) => ({
+                ...f,
+                name:
+                  f.first_name && f.last_name
+                    ? `${f.first_name} ${f.last_name}`
+                    : f.username || "Unknown",
+              }));
+              setFriends(mappedFriends);
+
+              // Filter invitations to only show friends
+              const friendIds = new Set(friendsData.map((f) => f.id));
+              const filtered = (eventData.invitations || []).filter(
+                (inv: any) => friendIds.has(inv.user_id)
+              );
+              setFriendInvitations(filtered);
+            } else {
+              setFriendInvitations([]);
+            }
+
+            // Find current user's invitation status
+            const myInvitation = (eventData.invitations || []).find(
+              (inv: any) => inv.user_id === currentUserId
+            );
+            if (myInvitation) {
+              setMyInvitationStatus(
+                myInvitation.status as "accepted" | "declined" | "pending"
+              );
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching event:", err);
+          Alert.alert("Error", "Failed to load event details.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchEventData();
+  }, [params.eventId]);
+
+  // Parse midpoint data from params (for creating new event)
+  const midpointData = params.midpointData
+    ? JSON.parse(params.midpointData)
+    : null;
+  const activity = params.activity || "restaurants";
+
+  // Get location from event (if viewing) or midpoint data (if creating)
+  const selectedPlace = event
+    ? { name: event.title, address: event.location }
+    : midpointData?.places?.[0] || null;
+
+  const midpointLocation = {
+    name: event?.title || selectedPlace?.name || "Midpoint Location",
+    address:
+      event?.location ||
+      selectedPlace?.address ||
+      midpointData?.midpoint_address ||
+      "Address not available",
   };
 
-  const handleSuggest = () => {
-    successHaptic();
-    setMyVote("suggested");
-    // In a real app, this would open a modal or navigate to a suggestion form
-    // For now, we'll just set the status
+  // Parse selected friends (for now, we'll use empty array if not provided)
+  const selectedFriends: Friend[] = params.selectedFriends
+    ? JSON.parse(params.selectedFriends)
+    : [];
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [eventSaved, setEventSaved] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Convert invitations to Vote format for display
+  const votes: Vote[] = friendInvitations
+    .filter(
+      (inv: any) => inv.status === "accepted" || inv.status === "declined"
+    )
+    .map((inv: any) => {
+      const user = inv.user || {};
+      const userName =
+        user.first_name && user.last_name
+          ? `${user.first_name} ${user.last_name}`
+          : user.username || "Unknown";
+
+      const respondedAt = inv.responded_at
+        ? new Date(inv.responded_at)
+        : new Date();
+      const minutesAgo = Math.floor(
+        (Date.now() - respondedAt.getTime()) / 60000
+      );
+      const timestamp =
+        minutesAgo < 1
+          ? "Just now"
+          : minutesAgo < 60
+          ? `${minutesAgo} ${minutesAgo === 1 ? "min" : "mins"} ago`
+          : `${Math.floor(minutesAgo / 60)} ${
+              Math.floor(minutesAgo / 60) === 1 ? "hour" : "hours"
+            } ago`;
+
+      return {
+        userId: inv.user_id,
+        userName,
+        status: inv.status === "accepted" ? "confirmed" : "suggested",
+        timestamp,
+      };
+    });
+
+  const handleConfirm = async () => {
+    if (!params.eventId) {
+      // For new events, just set local state
+      successHaptic();
+      setMyInvitationStatus("accepted");
+      return;
+    }
+
+    try {
+      setIsUpdatingStatus(true);
+      successHaptic();
+
+      const currentUserId = await getCurrentUserId();
+      const { data, error } = await EventsService.updateInvitationStatus(
+        params.eventId,
+        currentUserId,
+        "accepted"
+      );
+
+      if (error) {
+        console.error("Error updating invitation status:", error);
+        Alert.alert("Error", "Failed to update your response.");
+        setIsUpdatingStatus(false);
+        return;
+      }
+
+      setMyInvitationStatus("accepted");
+
+      // Refresh event data
+      const { data: eventData } = await EventsService.getEventWithDetails(
+        params.eventId
+      );
+      if (eventData) {
+        setAllInvitations(eventData.invitations || []);
+        const friendIds = new Set(friends.map((f) => f.id));
+        const filtered = (eventData.invitations || []).filter((inv: any) =>
+          friendIds.has(inv.user_id)
+        );
+        setFriendInvitations(filtered);
+      }
+    } catch (error: any) {
+      console.error("Error confirming:", error);
+      Alert.alert("Error", "Failed to update your response.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!params.eventId) {
+      // For new events, just set local state
+      successHaptic();
+      setMyInvitationStatus("declined");
+      return;
+    }
+
+    try {
+      setIsUpdatingStatus(true);
+      successHaptic();
+
+      const currentUserId = await getCurrentUserId();
+      const { data, error } = await EventsService.updateInvitationStatus(
+        params.eventId,
+        currentUserId,
+        "declined"
+      );
+
+      if (error) {
+        console.error("Error updating invitation status:", error);
+        Alert.alert("Error", "Failed to update your response.");
+        setIsUpdatingStatus(false);
+        return;
+      }
+
+      setMyInvitationStatus("declined");
+
+      // Refresh event data
+      const { data: eventData } = await EventsService.getEventWithDetails(
+        params.eventId
+      );
+      if (eventData) {
+        setAllInvitations(eventData.invitations || []);
+        const friendIds = new Set(friends.map((f) => f.id));
+        const filtered = (eventData.invitations || []).filter((inv: any) =>
+          friendIds.has(inv.user_id)
+        );
+        setFriendInvitations(filtered);
+      }
+    } catch (error: any) {
+      console.error("Error declining:", error);
+      Alert.alert("Error", "Failed to update your response.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   const handleSaveEvent = async () => {
@@ -198,11 +380,11 @@ export default function ConfirmMidpointPage() {
     }
   };
 
-  // Calculate confirmed count (excluding current user if not confirmed)
-  const confirmedCount =
-    votes.filter((v) => v.status === "confirmed").length +
-    (myVote === "confirmed" ? 1 : 0);
-  const totalParticipants = votes.length + 1; // +1 for current user
+  // Calculate confirmed count from actual database data
+  const acceptedCount = allInvitations.filter(
+    (inv: any) => inv.status === "accepted"
+  ).length;
+  const totalParticipants = allInvitations.length;
 
   const getInitials = (name: string) => {
     return name
@@ -269,7 +451,7 @@ export default function ConfirmMidpointPage() {
               <View style={styles.confirmationHeader}>
                 <Text style={styles.confirmationLabel}>Group confirmation</Text>
                 <Text style={styles.confirmationCount}>
-                  {confirmedCount}/{totalParticipants} confirmed
+                  {acceptedCount}/{totalParticipants} confirmed
                 </Text>
               </View>
               <View style={styles.progressBarContainer}>
@@ -277,7 +459,13 @@ export default function ConfirmMidpointPage() {
                   colors={colors.gradients.header}
                   style={[
                     styles.progressBar,
-                    { width: `${(confirmedCount / totalParticipants) * 100}%` },
+                    {
+                      width: `${
+                        totalParticipants > 0
+                          ? (acceptedCount / totalParticipants) * 100
+                          : 0
+                      }%`,
+                    },
                   ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -287,36 +475,39 @@ export default function ConfirmMidpointPage() {
           </View>
 
           {/* Your Response Section */}
-          {!myVote && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Your Response</Text>
-              <View style={styles.responseButtons}>
-                <Pressable
-                  onPress={handleConfirm}
-                  style={({ pressed }) => [
-                    styles.responseButton,
-                    { opacity: pressed ? 0.9 : 1 },
-                  ]}
-                >
-                  <ThumbsUp size={24} color={colors.secondary} />
-                  <Text style={styles.responseButtonText}>Confirm</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSuggest}
-                  style={({ pressed }) => [
-                    styles.responseButton,
-                    { opacity: pressed ? 0.9 : 1 },
-                  ]}
-                >
-                  <MessageSquare size={24} color={colors.secondary} />
-                  <Text style={styles.responseButtonText}>Suggest New</Text>
-                </Pressable>
+          {myInvitationStatus !== "accepted" &&
+            myInvitationStatus !== "declined" && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Your Response</Text>
+                <View style={styles.responseButtons}>
+                  <Pressable
+                    onPress={handleConfirm}
+                    disabled={isUpdatingStatus}
+                    style={({ pressed }) => [
+                      styles.responseButton,
+                      { opacity: pressed || isUpdatingStatus ? 0.7 : 1 },
+                    ]}
+                  >
+                    <ThumbsUp size={24} color={colors.secondary} />
+                    <Text style={styles.responseButtonText}>Confirm</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleDecline}
+                    disabled={isUpdatingStatus}
+                    style={({ pressed }) => [
+                      styles.responseButton,
+                      { opacity: pressed || isUpdatingStatus ? 0.7 : 1 },
+                    ]}
+                  >
+                    <MessageSquare size={24} color={colors.secondary} />
+                    <Text style={styles.responseButtonText}>Decline</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
           {/* My Vote Status */}
-          {myVote === "confirmed" && (
+          {myInvitationStatus === "accepted" && (
             <View style={styles.section}>
               <View style={styles.myVoteCard}>
                 <View style={styles.myVoteContent}>
@@ -327,11 +518,21 @@ export default function ConfirmMidpointPage() {
                     You confirmed this location
                   </Text>
                 </View>
+                <Pressable
+                  onPress={handleDecline}
+                  disabled={isUpdatingStatus}
+                  style={({ pressed }) => [
+                    styles.changeButton,
+                    { opacity: pressed || isUpdatingStatus ? 0.7 : 1 },
+                  ]}
+                >
+                  <Text style={styles.changeButtonText}>Change to Decline</Text>
+                </Pressable>
               </View>
             </View>
           )}
 
-          {myVote === "suggested" && (
+          {myInvitationStatus === "declined" && (
             <View style={styles.section}>
               <View style={styles.myVoteCard}>
                 <View style={styles.myVoteContent}>
@@ -339,9 +540,19 @@ export default function ConfirmMidpointPage() {
                     <MessageSquare size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.myVoteText}>
-                    You suggested an alternative
+                    You declined this location
                   </Text>
                 </View>
+                <Pressable
+                  onPress={handleConfirm}
+                  disabled={isUpdatingStatus}
+                  style={({ pressed }) => [
+                    styles.changeButton,
+                    { opacity: pressed || isUpdatingStatus ? 0.7 : 1 },
+                  ]}
+                >
+                  <Text style={styles.changeButtonText}>Change to Accept</Text>
+                </Pressable>
               </View>
             </View>
           )}
@@ -349,92 +560,73 @@ export default function ConfirmMidpointPage() {
           {/* Group Responses Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Group Responses</Text>
-            {votes.map((vote) => (
-              <View key={vote.userId} style={styles.responseCard}>
-                <View style={styles.responseCardContent}>
-                  <View style={styles.responseAvatarContainer}>
-                    <Avatar className="w-10 h-10">
-                      <AvatarFallback className="bg-muted">
-                        <Text style={styles.avatarText}>
-                          {getInitials(vote.userName)}
-                        </Text>
-                      </AvatarFallback>
-                    </Avatar>
-                  </View>
-                  <View style={styles.responseInfo}>
-                    <View style={styles.responseHeader}>
-                      <Text style={styles.responseName}>{vote.userName}</Text>
-                      {vote.status === "confirmed" && (
-                        <View style={styles.statusBadge}>
-                          <ThumbsUp size={12} color={colors.icon.white} />
-                          <Text style={styles.statusBadgeText}>Confirmed</Text>
-                        </View>
-                      )}
-                      {vote.status === "suggested" && (
-                        <View
-                          style={[
-                            styles.statusBadge,
-                            styles.statusBadgeSuggested,
-                          ]}
-                        >
-                          <MessageSquare size={12} color={colors.icon.white} />
-                          <Text style={styles.statusBadgeText}>Suggested</Text>
+            {votes.length === 0 ? (
+              <View style={styles.emptyResponsesContainer}>
+                <Text style={styles.emptyResponsesText}>
+                  No responses yet. Friends will appear here once they respond.
+                </Text>
+              </View>
+            ) : (
+              votes.map((vote) => (
+                <View key={vote.userId} style={styles.responseCard}>
+                  <View style={styles.responseCardContent}>
+                    <View style={styles.responseAvatarContainer}>
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-muted">
+                          <Text style={styles.avatarText}>
+                            {getInitials(vote.userName)}
+                          </Text>
+                        </AvatarFallback>
+                      </Avatar>
+                    </View>
+                    <View style={styles.responseInfo}>
+                      <View style={styles.responseHeader}>
+                        <Text style={styles.responseName}>{vote.userName}</Text>
+                        {vote.status === "confirmed" && (
+                          <View style={styles.statusBadge}>
+                            <ThumbsUp size={12} color={colors.icon.white} />
+                            <Text style={styles.statusBadgeText}>
+                              Confirmed
+                            </Text>
+                          </View>
+                        )}
+                        {vote.status === "suggested" && (
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              styles.statusBadgeSuggested,
+                            ]}
+                          >
+                            <MessageSquare
+                              size={12}
+                              color={colors.icon.white}
+                            />
+                            <Text style={styles.statusBadgeText}>Declined</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.responseTimestamp}>
+                        {vote.timestamp}
+                      </Text>
+                      {vote.suggestion && (
+                        <View style={styles.suggestionBubble}>
+                          <Text style={styles.suggestionText}>
+                            {vote.suggestion}
+                          </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.responseTimestamp}>
-                      {vote.timestamp}
-                    </Text>
-                    {vote.suggestion && (
-                      <View style={styles.suggestionBubble}>
-                        <Text style={styles.suggestionText}>
-                          {vote.suggestion}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
 
-          {/* Save Event Button - Show after user confirms */}
-          {myVote === "confirmed" && !eventSaved && (
+          {/* Loading State */}
+          {loading && (
             <View style={styles.section}>
-              <Pressable
-                onPress={handleSaveEvent}
-                disabled={isSaving}
-                style={({ pressed }) => [
-                  styles.saveButton,
-                  (isSaving || pressed) && styles.saveButtonDisabled,
-                  { opacity: pressed ? 0.9 : 1 },
-                ]}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <>
-                    <Save size={20} color={colors.icon.white} />
-                    <Text style={styles.saveButtonText}>Save Event</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          )}
-
-          {/* Event Saved Confirmation */}
-          {eventSaved && (
-            <View style={styles.section}>
-              <View style={styles.savedCard}>
-                <View style={styles.savedContent}>
-                  <View style={styles.savedIconContainer}>
-                    <Save size={20} color={colors.secondary} />
-                  </View>
-                  <Text style={styles.savedText}>
-                    Event saved successfully!
-                  </Text>
-                </View>
-              </View>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading event details...</Text>
             </View>
           )}
         </ScrollView>
@@ -752,5 +944,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: colors.foreground,
+  },
+  changeButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignSelf: "flex-start",
+  },
+  changeButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.primary,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    marginTop: 12,
+  },
+  emptyResponsesContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  emptyResponsesText: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: "center",
   },
 });

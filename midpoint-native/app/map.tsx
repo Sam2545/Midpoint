@@ -17,11 +17,11 @@ import {
   ArrowLeft,
   MapPin,
   Star,
-  Share2,
   Navigation,
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Share2,
 } from "lucide-react-native";
 import { successHaptic } from "../utils/haptics";
 import { colors, colorOpacity } from "../constants/theme";
@@ -260,7 +260,7 @@ export default function MidpointMapPage() {
 
   const handleShare = () => {
     successHaptic();
-    // Pass midpoint data, activity, and selected friends to poll page
+    // Navigate to poll page to save midpoint
     router.push({
       pathname: "/poll",
       params: {
@@ -329,6 +329,15 @@ export default function MidpointMapPage() {
               <Text style={styles.placesCountText}>{places.length}</Text>
             </View>
           )}
+          <Pressable
+            onPress={handleShare}
+            style={({ pressed }) => [
+              styles.shareHeaderButton,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Share2 size={20} color={colors.primary} />
+          </Pressable>
         </View>
 
         {/* Full Screen Map */}
@@ -503,43 +512,9 @@ export default function MidpointMapPage() {
                       </Pressable>
                     ))}
                   </ScrollView>
-
-                  {/* Share Button at Bottom of Sheet - Fixed */}
-                  <View style={styles.shareButtonContainer}>
-                    <Pressable
-                      onPress={handleShare}
-                      style={({ pressed }) => [
-                        styles.shareButton,
-                        { opacity: pressed ? 0.9 : 1 },
-                      ]}
-                    >
-                      <Share2 size={20} color={colors.icon.white} />
-                      <Text style={styles.shareButtonText}>
-                        Share Midpoint with Group
-                      </Text>
-                    </Pressable>
-                  </View>
                 </>
               )}
             </View>
-          </View>
-        )}
-
-        {/* Share Button - Only show if no places */}
-        {places.length === 0 && (
-          <View style={styles.bottomShareButtonContainer}>
-            <Pressable
-              onPress={handleShare}
-              style={({ pressed }) => [
-                styles.shareButton,
-                { opacity: pressed ? 0.9 : 1 },
-              ]}
-            >
-              <Share2 size={20} color={colors.icon.white} />
-              <Text style={styles.shareButtonText}>
-                Share Midpoint with Group
-              </Text>
-            </Pressable>
           </View>
         )}
       </View>
@@ -857,5 +832,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: colors.white,
+  },
+  shareHeaderButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 20,
+    marginLeft: 8,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });

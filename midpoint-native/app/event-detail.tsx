@@ -334,7 +334,7 @@ export default function EventDetailPage() {
                     ? "Event Shared"
                     : isSaving
                     ? "Saving..."
-                    : "Share with Friends"}
+                    : "Share Midpoint with Group"}
                 </Text>
               </Pressable>
             </View>
@@ -560,4 +560,3 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
 });
-
