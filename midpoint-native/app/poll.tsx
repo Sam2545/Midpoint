@@ -1,99 +1,214 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, MapPin, ThumbsUp, MessageSquare } from 'lucide-react-native';
-import { Avatar, AvatarFallback } from '../components/ui/Avatar';
-import { Vote } from '../utils/types';
-import { successHaptic } from '../utils/haptics';
-import { colors, colorOpacity } from '../constants/theme';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  ArrowLeft,
+  MapPin,
+  ThumbsUp,
+  MessageSquare,
+  Save,
+} from "lucide-react-native";
+import { Avatar, AvatarFallback } from "../components/ui/Avatar";
+import { Vote } from "../utils/types";
+import { successHaptic } from "../utils/haptics";
+import { colors, colorOpacity } from "../constants/theme";
+import { EventsService } from "../lib/events";
+import { AuthService } from "../lib/auth";
+import { supabase } from "../lib/supabase";
+import { Friend } from "../utils/types";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
 
 // Mock data
 const mockVotes: Vote[] = [
   {
-    userId: '1',
-    userName: 'Sarah Johnson',
-    status: 'confirmed',
-    timestamp: '2 mins ago'
+    userId: "1",
+    userName: "Sarah Johnson",
+    status: "confirmed",
+    timestamp: "2 mins ago",
   },
   {
-    userId: '2',
-    userName: 'Mike Chen',
-    status: 'suggested',
-    suggestion: 'How about The Oak Restaurant instead? It\'s closer to me.',
-    timestamp: '5 mins ago'
+    userId: "2",
+    userName: "Mike Chen",
+    status: "suggested",
+    suggestion: "How about The Oak Restaurant instead? It's closer to me.",
+    timestamp: "5 mins ago",
   },
 ];
 
-interface MidpointData {
-  midpoint: { lat: number; lng: number };
-  midpoint_address: string;
-  places: Array<{
-    place_id: string;
-    name: string;
-    address: string;
-  }>;
-  radius_meters: number;
-}
-
 export default function ConfirmMidpointPage() {
-  const params = useLocalSearchParams();
-  const [votes, setVotes] = useState<Vote[]>(mockVotes);
-  const [myVote, setMyVote] = useState<'confirmed' | 'suggested' | null>(null);
-  const [mySuggestion, setMySuggestion] = useState('');
-  const [midpointLocation, setMidpointLocation] = useState<{
-    name: string;
-    address: string;
-  }>({
-    name: 'Midpoint Location',
-    address: '',
-  });
+  const params = useLocalSearchParams<{
+    midpointData?: string;
+    activity?: string;
+    selectedFriends?: string; // JSON stringified array of friend IDs
+  }>();
 
-  useEffect(() => {
-    // Parse midpointData from params
-    if (params.midpointData) {
-      try {
-        const data = JSON.parse(params.midpointData as string) as MidpointData;
-        // Use first place name if available, otherwise use "Midpoint Location"
-        const name = data.places && data.places.length > 0 
-          ? data.places[0].name 
-          : 'Midpoint Location';
-        setMidpointLocation({
-          name,
-          address: data.midpoint_address || '',
-        });
-      } catch (error) {
-        console.error("Error parsing midpoint data:", error);
-      }
+  // Parse midpoint data from params
+  const midpointData = params.midpointData
+    ? JSON.parse(params.midpointData)
+    : null;
+  const activity = params.activity || "restaurants";
+
+  // Get selected place (use first place from midpoint data, or default)
+  const selectedPlace = midpointData?.places?.[0] || null;
+  const midpointLocation = {
+    name: selectedPlace?.name || "Midpoint Location",
+    address:
+      selectedPlace?.address ||
+      midpointData?.midpoint_address ||
+      "Address not available",
+  };
+
+  // Parse selected friends (for now, we'll use empty array if not provided)
+  // TODO: Get this from params when map.tsx is updated to pass friends
+  const selectedFriends: Friend[] = params.selectedFriends
+    ? JSON.parse(params.selectedFriends)
+    : [];
+
+  const [votes, setVotes] = useState<Vote[]>(mockVotes);
+  const [myVote, setMyVote] = useState<"confirmed" | "suggested" | null>(null);
+  const [mySuggestion, setMySuggestion] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [eventSaved, setEventSaved] = useState(false);
+
+  // Get current user ID - try auth first, then fallback to first user in DB
+  const getCurrentUserId = async (): Promise<string> => {
+    // Try to get authenticated user
+    const authResult = await AuthService.getCurrentUser();
+    if (authResult.profile?.id) {
+      return authResult.profile.id;
     }
-  }, [params]);
+
+    // Fallback: Get the first user from the database
+    try {
+      const { data: users, error } = await supabase
+        .from("users")
+        .select("id")
+        .limit(1);
+
+      if (!error && users && users.length > 0) {
+        return users[0].id;
+      }
+    } catch (err) {
+      console.error("Error getting user from database:", err);
+    }
+
+    // Last resort: Create a temporary user
+    try {
+      const timestamp = Date.now();
+      const { data: newUser, error } = await supabase
+        .from("users")
+        .insert({
+          username: `temp-user-${timestamp}`,
+          email: `temp-${timestamp}@example.com`,
+          first_name: "Temp",
+          last_name: "User",
+          password_hash: "temp-password", // Required field
+        })
+        .select("id")
+        .single();
+
+      if (!error && newUser) {
+        return newUser.id;
+      }
+    } catch (err) {
+      console.error("Error creating temp user:", err);
+    }
+
+    // If all else fails, throw an error
+    throw new Error("Unable to get or create a user ID");
+  };
 
   const handleConfirm = () => {
     successHaptic();
-    setMyVote('confirmed');
-    setMySuggestion('');
+    setMyVote("confirmed");
+    setMySuggestion("");
   };
 
   const handleSuggest = () => {
     successHaptic();
-    setMyVote('suggested');
+    setMyVote("suggested");
     // In a real app, this would open a modal or navigate to a suggestion form
     // For now, we'll just set the status
   };
 
+  const handleSaveEvent = async () => {
+    try {
+      setIsSaving(true);
+      successHaptic();
+
+      const currentUserId = await getCurrentUserId();
+
+      // Get all invited user IDs (selected friends + current user)
+      const invitedUserIds = [
+        currentUserId,
+        ...selectedFriends.map((friend) => friend.id),
+      ];
+
+      // Create event with midpoint location
+      const { data: event, error } = await EventsService.createEvent(
+        midpointLocation.name, // Event title = place name
+        midpointLocation.address, // Location
+        currentUserId,
+        invitedUserIds
+      );
+
+      if (error) {
+        Alert.alert(
+          "Error",
+          error.message || "Failed to save event. Please try again."
+        );
+        setIsSaving(false);
+        return;
+      }
+
+      if (event) {
+        setEventSaved(true);
+        Alert.alert(
+          "Event Saved!",
+          "Your event has been saved and invitations have been sent.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // Optionally navigate to events page
+                // router.push('/events');
+              },
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error("Error saving event:", error);
+      Alert.alert("Error", "Failed to save event. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Calculate confirmed count (excluding current user if not confirmed)
-  const confirmedCount = votes.filter(v => v.status === 'confirmed').length + (myVote === 'confirmed' ? 1 : 0);
+  const confirmedCount =
+    votes.filter((v) => v.status === "confirmed").length +
+    (myVote === "confirmed" ? 1 : 0);
   const totalParticipants = votes.length + 1; // +1 for current user
 
   const getInitials = (name: string) => {
     return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
       .toUpperCase();
   };
 
@@ -142,7 +257,9 @@ export default function ConfirmMidpointPage() {
               </View>
               <View style={styles.midpointInfo}>
                 <Text style={styles.midpointName}>{midpointLocation.name}</Text>
-                <Text style={styles.midpointAddress}>{midpointLocation.address}</Text>
+                <Text style={styles.midpointAddress}>
+                  {midpointLocation.address}
+                </Text>
                 <Text style={styles.midpointLabel}>Midpoint location</Text>
               </View>
             </View>
@@ -151,12 +268,17 @@ export default function ConfirmMidpointPage() {
             <View style={styles.confirmationSection}>
               <View style={styles.confirmationHeader}>
                 <Text style={styles.confirmationLabel}>Group confirmation</Text>
-                <Text style={styles.confirmationCount}>{confirmedCount}/{totalParticipants} confirmed</Text>
+                <Text style={styles.confirmationCount}>
+                  {confirmedCount}/{totalParticipants} confirmed
+                </Text>
               </View>
               <View style={styles.progressBarContainer}>
                 <LinearGradient
                   colors={colors.gradients.header}
-                  style={[styles.progressBar, { width: `${(confirmedCount / totalParticipants) * 100}%` }]}
+                  style={[
+                    styles.progressBar,
+                    { width: `${(confirmedCount / totalParticipants) * 100}%` },
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 />
@@ -194,27 +316,31 @@ export default function ConfirmMidpointPage() {
           )}
 
           {/* My Vote Status */}
-          {myVote === 'confirmed' && (
+          {myVote === "confirmed" && (
             <View style={styles.section}>
               <View style={styles.myVoteCard}>
                 <View style={styles.myVoteContent}>
                   <View style={styles.myVoteIconContainer}>
                     <ThumbsUp size={20} color={colors.secondary} />
                   </View>
-                  <Text style={styles.myVoteText}>You confirmed this location</Text>
+                  <Text style={styles.myVoteText}>
+                    You confirmed this location
+                  </Text>
                 </View>
               </View>
             </View>
           )}
 
-          {myVote === 'suggested' && (
+          {myVote === "suggested" && (
             <View style={styles.section}>
               <View style={styles.myVoteCard}>
                 <View style={styles.myVoteContent}>
                   <View style={styles.myVoteIconContainer}>
                     <MessageSquare size={20} color={colors.primary} />
                   </View>
-                  <Text style={styles.myVoteText}>You suggested an alternative</Text>
+                  <Text style={styles.myVoteText}>
+                    You suggested an alternative
+                  </Text>
                 </View>
               </View>
             </View>
@@ -228,31 +354,42 @@ export default function ConfirmMidpointPage() {
                 <View style={styles.responseCardContent}>
                   <View style={styles.responseAvatarContainer}>
                     <Avatar className="w-10 h-10">
-                      <AvatarFallback style={styles.avatarFallback}>
-                        <Text style={styles.avatarText}>{getInitials(vote.userName)}</Text>
+                      <AvatarFallback className="bg-muted">
+                        <Text style={styles.avatarText}>
+                          {getInitials(vote.userName)}
+                        </Text>
                       </AvatarFallback>
                     </Avatar>
                   </View>
                   <View style={styles.responseInfo}>
                     <View style={styles.responseHeader}>
                       <Text style={styles.responseName}>{vote.userName}</Text>
-                      {vote.status === 'confirmed' && (
+                      {vote.status === "confirmed" && (
                         <View style={styles.statusBadge}>
                           <ThumbsUp size={12} color={colors.icon.white} />
                           <Text style={styles.statusBadgeText}>Confirmed</Text>
                         </View>
                       )}
-                      {vote.status === 'suggested' && (
-                        <View style={[styles.statusBadge, styles.statusBadgeSuggested]}>
+                      {vote.status === "suggested" && (
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            styles.statusBadgeSuggested,
+                          ]}
+                        >
                           <MessageSquare size={12} color={colors.icon.white} />
                           <Text style={styles.statusBadgeText}>Suggested</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.responseTimestamp}>{vote.timestamp}</Text>
+                    <Text style={styles.responseTimestamp}>
+                      {vote.timestamp}
+                    </Text>
                     {vote.suggestion && (
                       <View style={styles.suggestionBubble}>
-                        <Text style={styles.suggestionText}>{vote.suggestion}</Text>
+                        <Text style={styles.suggestionText}>
+                          {vote.suggestion}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -260,6 +397,46 @@ export default function ConfirmMidpointPage() {
               </View>
             ))}
           </View>
+
+          {/* Save Event Button - Show after user confirms */}
+          {myVote === "confirmed" && !eventSaved && (
+            <View style={styles.section}>
+              <Pressable
+                onPress={handleSaveEvent}
+                disabled={isSaving}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  (isSaving || pressed) && styles.saveButtonDisabled,
+                  { opacity: pressed ? 0.9 : 1 },
+                ]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <Save size={20} color={colors.icon.white} />
+                    <Text style={styles.saveButtonText}>Save Event</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
+
+          {/* Event Saved Confirmation */}
+          {eventSaved && (
+            <View style={styles.section}>
+              <View style={styles.savedCard}>
+                <View style={styles.savedContent}>
+                  <View style={styles.savedIconContainer}>
+                    <Save size={20} color={colors.secondary} />
+                  </View>
+                  <Text style={styles.savedText}>
+                    Event saved successfully!
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -281,45 +458,45 @@ const styles = StyleSheet.create({
     height: HEADER_HEIGHT,
     minHeight: 180,
     maxHeight: 220,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   backButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    justifyContent: "center",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
   headerContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: colorOpacity.white['20'],
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colorOpacity.white["20"],
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTextContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.white,
     marginBottom: 4,
     letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: colorOpacity.white['80'],
-    fontWeight: '400',
+    color: colorOpacity.white["80"],
+    fontWeight: "400",
   },
   bodySection: {
     flex: 1,
@@ -335,7 +512,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.foreground,
     marginBottom: 16,
   },
@@ -348,8 +525,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   midpointHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
     marginBottom: 16,
   },
@@ -357,16 +534,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 8,
-    backgroundColor: colorOpacity.secondary['10'],
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colorOpacity.secondary["10"],
+    justifyContent: "center",
+    alignItems: "center",
   },
   midpointInfo: {
     flex: 1,
   },
   midpointName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.secondary,
     marginBottom: 4,
   },
@@ -378,15 +555,15 @@ const styles = StyleSheet.create({
   midpointLabel: {
     fontSize: 12,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   confirmationSection: {
     marginTop: 12,
   },
   confirmationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   confirmationLabel: {
@@ -396,21 +573,21 @@ const styles = StyleSheet.create({
   confirmationCount: {
     fontSize: 14,
     color: colors.secondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   progressBarContainer: {
-    width: '100%',
+    width: "100%",
     height: 8,
     backgroundColor: colors.muted,
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressBar: {
-    height: '100%',
+    height: "100%",
     borderRadius: 4,
   },
   responseButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   responseButton: {
@@ -418,27 +595,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     borderWidth: 1,
     borderColor: colors.border,
   },
   responseButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.secondary,
   },
   myVoteCard: {
-    backgroundColor: colorOpacity.secondary['10'],
+    backgroundColor: colorOpacity.secondary["10"],
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: colorOpacity.secondary['20'],
+    borderColor: colorOpacity.secondary["20"],
   },
   myVoteContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   myVoteIconContainer: {
@@ -446,12 +623,12 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   myVoteText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   responseCard: {
@@ -463,8 +640,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   responseCardContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
   },
   responseAvatarContainer: {
@@ -475,27 +652,27 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   responseInfo: {
     flex: 1,
   },
   responseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 4,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   responseName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.foreground,
   },
   statusBadge: {
@@ -503,8 +680,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   statusBadgeSuggested: {
@@ -512,7 +689,7 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.white,
   },
   responseTimestamp: {
@@ -521,7 +698,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   suggestionBubble: {
-    backgroundColor: colorOpacity.primary['20'],
+    backgroundColor: colorOpacity.primary["20"],
     borderRadius: 8,
     padding: 12,
     marginTop: 4,
@@ -530,5 +707,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.foreground,
     lineHeight: 20,
+  },
+  saveButton: {
+    width: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  saveButtonDisabled: {
+    backgroundColor: colors.muted,
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.white,
+  },
+  savedCard: {
+    backgroundColor: colorOpacity.secondary["10"],
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colorOpacity.secondary["20"],
+  },
+  savedContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  savedIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  savedText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.foreground,
   },
 });

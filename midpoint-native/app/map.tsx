@@ -32,13 +32,17 @@ export default function MidpointMapPage() {
   const params = useLocalSearchParams<{
     activity?: string;
     midpointData?: string;
+    selectedFriends?: string; // JSON stringified array of friend IDs
   }>();
   const midpointData = params.midpointData
     ? JSON.parse(params.midpointData)
     : null;
   const activity = params.activity || "restaurants";
+  const selectedFriends = params.selectedFriends
+    ? JSON.parse(params.selectedFriends)
+    : [];
 
-  const [sheetExpanded, setSheetExpanded] = React.useState(false);
+  const [sheetExpanded, setSheetExpanded] = React.useState(true);
 
   // Default center (San Francisco) - will be updated with actual midpoint data
   const center =
@@ -256,16 +260,15 @@ export default function MidpointMapPage() {
 
   const handleShare = () => {
     successHaptic();
-    if (midpointData) {
-      router.push({
-        pathname: "/poll",
-        params: {
-          midpointData: JSON.stringify(midpointData),
-        },
-      });
-    } else {
-      router.push("/poll");
-    }
+    // Pass midpoint data, activity, and selected friends to poll page
+    router.push({
+      pathname: "/poll",
+      params: {
+        midpointData: params.midpointData || JSON.stringify(midpointData),
+        activity: activity,
+        selectedFriends: params.selectedFriends || JSON.stringify([]),
+      },
+    });
   };
 
   const handleRestaurantPress = (place: any) => {
@@ -278,8 +281,9 @@ export default function MidpointMapPage() {
         restaurantPlaceId: place.place_id,
         restaurantCoordinates: JSON.stringify(place.coordinates),
         restaurantRating: place.rating?.toString() || "",
-        restaurantDistance: place.distance.toString(),
+        restaurantDistance: place.distance?.toString() || "",
         isNewEvent: "true",
+        selectedFriends: params.selectedFriends || JSON.stringify([]),
       },
     });
   };
@@ -421,9 +425,13 @@ export default function MidpointMapPage() {
                   >
                     {/* Place Cards */}
                     {displayedPlaces.map((place: any, index: number) => (
-                      <View
+                      <Pressable
                         key={place.place_id || index}
-                        style={styles.restaurantCard}
+                        onPress={() => handleRestaurantPress(place)}
+                        style={({ pressed }) => [
+                          styles.restaurantCard,
+                          { opacity: pressed ? 0.8 : 1 },
+                        ]}
                       >
                         {/* Place Image */}
                         {place.photos &&
@@ -492,7 +500,7 @@ export default function MidpointMapPage() {
                             )}
                           </View>
                         )}
-                      </View>
+                      </Pressable>
                     ))}
                   </ScrollView>
 
