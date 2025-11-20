@@ -39,6 +39,10 @@ export default function MidpointMapPage() {
   const activity = params.activity || "restaurants";
 
   const [sheetExpanded, setSheetExpanded] = React.useState(false);
+  const [selectedPlace, setSelectedPlace] = React.useState<string | null>(null);
+
+  // Get places from midpoint data
+  const places = midpointData?.places || [];
 
   // Default center (San Francisco) - will be updated with actual midpoint data
   const center =
@@ -95,15 +99,20 @@ export default function MidpointMapPage() {
       lng: number;
       title: string;
       icon: string;
+      place_id: string;
+      isSelected: boolean;
     }> = [];
-    if (midpointData?.places) {
-      midpointData.places.forEach((place: any, index: number) => {
+    if (places && places.length > 0) {
+      places.forEach((place: any, index: number) => {
         if (place.coordinates?.lat && place.coordinates?.lng) {
+          const isSelected = selectedPlace === place.place_id;
           markers.push({
             lat: place.coordinates.lat,
             lng: place.coordinates.lng,
             title: place.name || `Place ${index + 1}`,
             icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+            place_id: place.place_id || index.toString(),
+            isSelected: isSelected,
           });
         }
       });
@@ -168,14 +177,31 @@ export default function MidpointMapPage() {
 
               // Add place markers
               const markers = ${JSON.stringify(markers)};
+              const markerObjects = [];
               markers.forEach(marker => {
-                new google.maps.Marker({
+                const iconSize = marker.isSelected ? 60 : 40;
+                const iconUrl = marker.isSelected 
+                  ? 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                  : 'http://maps.google.com/mapfiles/ms/icons/red-dot.png';
+                
+                const markerObj = new google.maps.Marker({
                   position: { lat: marker.lat, lng: marker.lng },
                   map: map,
                   title: marker.title,
-                  icon: marker.icon
+                  icon: {
+                    url: iconUrl,
+                    scaledSize: new google.maps.Size(iconSize, iconSize),
+                    anchor: new google.maps.Point(iconSize / 2, iconSize / 2)
+                  },
+                  zIndex: marker.isSelected ? 999 : 100,
+                  animation: marker.isSelected ? google.maps.Animation.BOUNCE : null
                 });
+                
+                markerObjects.push({ marker: markerObj, place_id: marker.place_id });
               });
+              
+              // Store markers globally for selection updates
+              window.mapMarkers = markerObjects;
 
               // Fit bounds to show all markers
               if (markers.length > 0) {
@@ -225,10 +251,7 @@ export default function MidpointMapPage() {
         </body>
       </html>
     `;
-  }, [center, midpointData, apiKey]);
-
-  // Get places from midpoint data or use empty array
-  const places = midpointData?.places || [];
+  }, [center, places, midpointData?.original_coords, selectedPlace, apiKey]);
 
   // Helper function to open Google Maps
   const openGoogleMaps = (place: any) => {
@@ -256,32 +279,30 @@ export default function MidpointMapPage() {
 
   const handleShare = () => {
     successHaptic();
-    if (midpointData) {
+    // Find the selected place
+    const selectedPlaceData = places.find(
+      (p: any) => p.place_id === selectedPlace
+    );
+    if (selectedPlaceData) {
       router.push({
-        pathname: "/poll",
+        pathname: "/event-detail",
         params: {
-          midpointData: JSON.stringify(midpointData),
+          restaurantName: selectedPlaceData.name,
+          restaurantAddress: selectedPlaceData.address,
+          restaurantPlaceId: selectedPlaceData.place_id,
+          restaurantCoordinates: JSON.stringify(selectedPlaceData.coordinates),
+          restaurantRating: selectedPlaceData.rating?.toString() || "",
+          restaurantDistance: selectedPlaceData.distance?.toString() || "",
+          isNewEvent: "true",
         },
       });
-    } else {
-      router.push("/poll");
     }
   };
 
   const handleRestaurantPress = (place: any) => {
     successHaptic();
-    router.push({
-      pathname: "/event-detail",
-      params: {
-        restaurantName: place.name,
-        restaurantAddress: place.address,
-        restaurantPlaceId: place.place_id,
-        restaurantCoordinates: JSON.stringify(place.coordinates),
-        restaurantRating: place.rating?.toString() || "",
-        restaurantDistance: place.distance.toString(),
-        isNewEvent: "true",
-      },
-    });
+    // Set selected place to expand the pin on the map
+    setSelectedPlace(place.place_id);
   };
 
   const [displayedCount, setDisplayedCount] = React.useState(10);
@@ -420,80 +441,91 @@ export default function MidpointMapPage() {
                     nestedScrollEnabled={true}
                   >
                     {/* Place Cards */}
-                    {displayedPlaces.map((place: any, index: number) => (
-                      <View
-                        key={place.place_id || index}
-                        style={styles.restaurantCard}
-                      >
-                        {/* Place Image */}
-                        {place.photos &&
-                          place.photos.length > 0 &&
-                          place.photos[0].url && (
-                            <Image
-                              source={{ uri: place.photos[0].url }}
-                              style={styles.placeImage}
-                              resizeMode="cover"
-                            />
-                          )}
-
-                        {/* Place Header */}
-                        <View style={styles.restaurantHeader}>
-                          <View style={styles.nameContainer}>
-                            <Text
-                              style={styles.restaurantName}
-                              numberOfLines={2}
-                            >
-                              {place.name || "Unknown Place"}
-                            </Text>
-                            {place.rating && (
-                              <View style={styles.ratingContainer}>
-                                <Star
-                                  size={16}
-                                  color={colors.primary}
-                                  fill={colors.primary}
-                                />
-                                <Text style={styles.ratingText}>
-                                  {place.rating.toFixed(1)}
-                                </Text>
-                              </View>
+                    {places.map((place: any, index: number) => {
+                      const isSelected = selectedPlace === place.place_id;
+                      return (
+                        <Pressable
+                          key={place.place_id || index}
+                          onPress={() => handleRestaurantPress(place)}
+                          style={({ pressed }) => [
+                            styles.restaurantCard,
+                            isSelected && styles.restaurantCardSelected,
+                            { opacity: pressed ? 0.9 : 1 },
+                          ]}
+                        >
+                          {/* Place Image */}
+                          {place.photos &&
+                            place.photos.length > 0 &&
+                            place.photos[0].url && (
+                              <Image
+                                source={{ uri: place.photos[0].url }}
+                                style={styles.placeImage}
+                                resizeMode="cover"
+                              />
                             )}
-                          </View>
-                          {/* Google Maps Link */}
-                          <Pressable
-                            onPress={() => openGoogleMaps(place)}
-                            style={({ pressed }) => [
-                              styles.mapsButton,
-                              { opacity: pressed ? 0.7 : 1 },
-                            ]}
-                          >
-                            <ExternalLink size={20} color={colors.primary} />
-                          </Pressable>
-                        </View>
 
-                        {/* Place Details */}
-                        {place.address && (
-                          <View style={styles.restaurantDetails}>
-                            <View style={styles.detailRow}>
-                              <MapPin size={16} color={colors.icon.muted} />
-                              <Text style={styles.detailText} numberOfLines={2}>
-                                {place.address}
+                          {/* Place Header */}
+                          <View style={styles.restaurantHeader}>
+                            <View style={styles.nameContainer}>
+                              <Text
+                                style={styles.restaurantName}
+                                numberOfLines={2}
+                              >
+                                {place.name || "Unknown Place"}
                               </Text>
+                              {place.rating && (
+                                <View style={styles.ratingContainer}>
+                                  <Star
+                                    size={16}
+                                    color={colors.primary}
+                                    fill={colors.primary}
+                                  />
+                                  <Text style={styles.ratingText}>
+                                    {place.rating.toFixed(1)}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
-                            {place.distance && (
+                            {/* Google Maps Link */}
+                            <Pressable
+                              onPress={() => openGoogleMaps(place)}
+                              style={({ pressed }) => [
+                                styles.mapsButton,
+                                { opacity: pressed ? 0.7 : 1 },
+                              ]}
+                            >
+                              <ExternalLink size={20} color={colors.primary} />
+                            </Pressable>
+                          </View>
+
+                          {/* Place Details */}
+                          {place.address && (
+                            <View style={styles.restaurantDetails}>
                               <View style={styles.detailRow}>
-                                <Navigation
-                                  size={16}
-                                  color={colors.icon.muted}
-                                />
-                                <Text style={styles.detailText}>
-                                  {formatDistance(place.distance)}
+                                <MapPin size={16} color={colors.icon.muted} />
+                                <Text
+                                  style={styles.detailText}
+                                  numberOfLines={2}
+                                >
+                                  {place.address}
                                 </Text>
                               </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    ))}
+                              {place.distance && (
+                                <View style={styles.detailRow}>
+                                  <Navigation
+                                    size={16}
+                                    color={colors.icon.muted}
+                                  />
+                                  <Text style={styles.detailText}>
+                                    {formatDistance(place.distance)}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
+                        </Pressable>
+                      );
+                    })}
                   </ScrollView>
 
                   {/* Share Button at Bottom of Sheet - Fixed */}
@@ -507,7 +539,7 @@ export default function MidpointMapPage() {
                     >
                       <Share2 size={20} color={colors.icon.white} />
                       <Text style={styles.shareButtonText}>
-                        Share Midpoint with Group
+                        Confirm Midpoint
                       </Text>
                     </Pressable>
                   </View>
@@ -528,9 +560,7 @@ export default function MidpointMapPage() {
               ]}
             >
               <Share2 size={20} color={colors.icon.white} />
-              <Text style={styles.shareButtonText}>
-                Share Midpoint with Group
-              </Text>
+              <Text style={styles.shareButtonText}>Confirm Midpoint</Text>
             </Pressable>
           </View>
         )}
@@ -711,6 +741,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: "hidden",
+  },
+  restaurantCardSelected: {
+    borderWidth: 3,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   placeImage: {
     width: "100%",
