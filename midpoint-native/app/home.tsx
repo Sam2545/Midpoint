@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { ArrowLeft, Plus, Calendar, UserPlus } from 'lucide-react-native';
 import { colors } from '../constants/theme';
 import { successHaptic } from '../utils/haptics';
+import Navbar from '../components/Navbar';
 
 export default function HomeScreen() {
   const handlePlanHangout = () => {
@@ -23,7 +24,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.content}>
         {/* Back Button */}
         <Pressable
@@ -77,6 +78,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+      <Navbar />
     </SafeAreaView>
   );
 }

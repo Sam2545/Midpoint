@@ -52,11 +52,13 @@ function RootLayoutNav() {
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="create-account" />
-      <Stack.Screen name="home" />
-      <Stack.Screen name="events" />
+      {/* Tab screens - no animation for instant switching */}
+      <Stack.Screen name="home" options={{ animation: 'none' }} />
+      <Stack.Screen name="events" options={{ animation: 'none' }} />
+      <Stack.Screen name="add-friends" options={{ animation: 'none' }} />
+      <Stack.Screen name="locations" options={{ animation: 'none' }} />
+      {/* Other screens keep default animation */}
       <Stack.Screen name="event-detail" />
-      <Stack.Screen name="add-friends" />
-      <Stack.Screen name="locations" />
       <Stack.Screen name="map" />
       <Stack.Screen name="poll" />
     </Stack>
