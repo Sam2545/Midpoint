@@ -1,8 +1,11 @@
 package com.midpoint.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.midpoint.dto.*;
+import com.midpoint.exception.PlacesApiException;
+import com.midpoint.exception.PlacesResponseParsingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -188,7 +191,7 @@ public class MidpointService {
                             root.get("results").size() > 0) {
                             return root.get("results").get(0).get("formatted_address").asText();
                         }
-                    } catch (Exception e) {
+                    } catch (JsonProcessingException e) {
                         LOGGER.error("Error parsing reverse geocoding response", e);
                     }
                     return String.format("%.4f°, %.4f°", coordinates.getLat(), coordinates.getLng());
@@ -224,7 +227,7 @@ public class MidpointService {
                     try {
                         JsonNode root = objectMapper.readTree(response);
                         if (!"OK".equals(root.get("status").asText())) {
-                            throw new RuntimeException("Places API error: " + root.get("status").asText());
+                            throw new PlacesApiException(root.get("status").asText());
                         }
 
                         List<Place> places = new ArrayList<>();
@@ -292,8 +295,10 @@ public class MidpointService {
                         // Sort by distance
                         places.sort(Comparator.comparing(Place::getDistance));
                         return places;
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error parsing places response", e);
+                    } catch (JsonProcessingException e) {
+                        throw new PlacesResponseParsingException("Error parsing places response", e);
+                    } catch (PlacesApiException e) {
+                        throw e;
                     }
                 })
                 .onErrorReturn(new ArrayList<>());
@@ -340,7 +345,9 @@ public class MidpointService {
         String url = String.format("%s?origins=%s&destinations=%s&mode=%s&key=%s",
                 DISTANCE_MATRIX_URL, originsParam, destinationsParam, mode, apiKey);
 
-        LOGGER.info("  🔗 Distance Matrix API URL: {}", url.replace(apiKey, "***"));
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("  🔗 Distance Matrix API URL: {}", url.replace(apiKey, "***"));
+        }
 
         return webClient.get()
                 .uri(url)
@@ -418,15 +425,13 @@ public class MidpointService {
 
                         LOGGER.info("✅ [ISOCHRONE] Travel summaries computed for {} places", enhanced.size());
                         return enhanced;
-                    } catch (Exception e) {
+                    } catch (JsonProcessingException e) {
                         LOGGER.error("❌ [ISOCHRONE] Error parsing distance matrix response", e);
                         return places;
                     }
                 })
                 .onErrorReturn(places)
-                .doOnError(error -> {
-                    LOGGER.error("❌ [ISOCHRONE] Error calling Distance Matrix API", error);
-                });
+                .doOnError(error -> LOGGER.error("❌ [ISOCHRONE] Error calling Distance Matrix API", error));
     }
 
     /**
@@ -467,7 +472,7 @@ public class MidpointService {
                     // Limit early to reduce Distance Matrix elements
                     List<Place> limitedPlaces = places.stream()
                             .limit(20)
-                            .collect(Collectors.toList());
+                            .toList();
                     LOGGER.info("  🔢 Limiting to {} places for travel time calculation", limitedPlaces.size());
 
                     // Compute per-origin travel summaries for these places

@@ -43,10 +43,97 @@ class PlacesControllerTest2 {
     private SecurityFilterChain securityFilterChain;
 
     @Test
+    void testGetPlaceAutocomplete_Success() {
+        PlacePrediction prediction = new PlacePrediction();
+        prediction.setPlaceId("test-place-id");
+        prediction.setDescription("Test Place, New York, NY, USA");
+        
+        PlacePrediction.StructuredFormatting formatting = new PlacePrediction.StructuredFormatting();
+        formatting.setMainText("Test Place");
+        formatting.setSecondaryText("New York, NY, USA");
+        prediction.setStructuredFormatting(formatting);
+        
+        List<PlacePrediction> predictions = Arrays.asList(prediction);
+        
+        when(googleMapsService.getPlaceAutocomplete("Test", anyString()))
+            .thenReturn(Mono.just(predictions));
+        
+        webTestClient.get()
+            .uri("/api/places/autocomplete?input=Test")
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBodyList(PlacePrediction.class)
+            .hasSize(1)
+            .consumeWith(result -> {
+                PlacePrediction response = result.getResponseBody().get(0);
+                assertEquals("test-place-id", response.getPlaceId());
+                assertEquals("Test Place, New York, NY, USA", response.getDescription());
+            });
+    }
+
+    @Test
+    void testGetPlaceAutocomplete_WithSessionToken() {
+        List<PlacePrediction> predictions = Collections.emptyList();
+        
+        when(googleMapsService.getPlaceAutocomplete("Test", "custom-token"))
+            .thenReturn(Mono.just(predictions));
+        
+        webTestClient.get()
+            .uri("/api/places/autocomplete?input=Test&sessionToken=custom-token")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBodyList(PlacePrediction.class)
+            .hasSize(0);
+    }
+
+    @Test
+    void testGetPlaceAutocomplete_Error() {
+        when(googleMapsService.getPlaceAutocomplete("Test", anyString()))
+            .thenReturn(Mono.error(new RuntimeException("Service error")));
+        
+        webTestClient.get()
+            .uri("/api/places/autocomplete?input=Test")
+            .exchange()
+            .expectStatus().is5xxServerError();
+    }
+
+    @Test
+    void testGetPlaceDetails_Success() {
+        PlaceDetails details = new PlaceDetails();
+        details.setPlaceId("test-place-id");
+        details.setName("Test Place");
+        details.setFormattedAddress("123 Test St, New York, NY, USA");
+        
+        PlaceDetails.Geometry geometry = new PlaceDetails.Geometry();
+        PlaceDetails.Geometry.Location location = new PlaceDetails.Geometry.Location();
+        location.setLat(40.7128);
+        location.setLng(-74.0060);
+        geometry.setLocation(location);
+        details.setGeometry(geometry);
+        
+        when(googleMapsService.getPlaceDetails("test-place-id", anyString()))
+            .thenReturn(Mono.just(details));
+        
+        webTestClient.get()
+            .uri("/api/places/details?placeId=test-place-id")
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody(PlaceDetails.class)
+            .consumeWith(result -> {
+                PlaceDetails response = result.getResponseBody();
+                assertEquals("test-place-id", response.getPlaceId());
+                assertEquals("Test Place", response.getName());
+                assertNotNull(response.getGeometry());
+            });
+    }
+
+    @Test
     void testGetPlaceDetails_WithSessionToken() {
         PlaceDetails details = new PlaceDetails();
         
-        when(googleMapsService.getPlaceDetails(eq("test-place-id"), eq("custom-token")))
+        when(googleMapsService.getPlaceDetails("test-place-id", "custom-token"))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()
@@ -58,7 +145,7 @@ class PlacesControllerTest2 {
 
     @Test
     void testGetPlaceDetails_Error() {
-        when(googleMapsService.getPlaceDetails(eq("test-place-id"), anyString()))
+        when(googleMapsService.getPlaceDetails("test-place-id", anyString()))
             .thenReturn(Mono.error(new RuntimeException("Service error")));
         
         webTestClient.get()
@@ -262,7 +349,7 @@ class PlacesControllerTest2 {
     void testGetPlaceAutocomplete_EmptyInput() {
         List<PlacePrediction> predictions = Collections.emptyList();
         
-        when(googleMapsService.getPlaceAutocomplete(eq(""), anyString()))
+        when(googleMapsService.getPlaceAutocomplete("", anyString()))
             .thenReturn(Mono.just(predictions));
         
         webTestClient.get()
@@ -277,7 +364,7 @@ class PlacesControllerTest2 {
     void testGetPlaceDetails_EmptyPlaceId() {
         PlaceDetails details = new PlaceDetails();
         
-        when(googleMapsService.getPlaceDetails(eq(""), anyString()))
+        when(googleMapsService.getPlaceDetails("", anyString()))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()
