@@ -8,6 +8,8 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Linking,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -20,6 +22,7 @@ import {
   Save,
   Calendar,
   Clock,
+  Navigation,
 } from "lucide-react-native";
 import { Avatar, AvatarFallback } from "../components/ui/Avatar";
 import { Vote } from "../utils/types";
@@ -369,6 +372,31 @@ export default function ConfirmMidpointPage() {
       .toUpperCase();
   };
 
+  const openAddressInMaps = (address: string) => {
+    successHaptic();
+    
+    // Encode the address for URL
+    const encodedAddress = encodeURIComponent(address);
+    
+    // Try to open in Apple Maps first on iOS, then fallback to Google Maps
+    if (Platform.OS === 'ios') {
+      const appleMapsUrl = `maps://maps.apple.com/?q=${encodedAddress}`;
+      Linking.openURL(appleMapsUrl).catch(() => {
+        // Fallback to Google Maps if Apple Maps fails
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+        Linking.openURL(googleMapsUrl).catch((err) => {
+          console.error("Failed to open maps:", err);
+        });
+      });
+    } else {
+      // Android - use Google Maps
+      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+      Linking.openURL(googleMapsUrl).catch((err) => {
+        console.error("Failed to open Google Maps:", err);
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -414,9 +442,21 @@ export default function ConfirmMidpointPage() {
               </View>
               <View style={styles.midpointInfo}>
                 <Text style={styles.midpointName}>{midpointLocation.name}</Text>
-                <Text style={styles.midpointAddress}>
-                  {midpointLocation.address}
-                </Text>
+                <View style={styles.addressRow}>
+                  <Text style={styles.midpointAddress} numberOfLines={2}>
+                    {midpointLocation.address}
+                  </Text>
+                  <Pressable
+                    onPress={() => openAddressInMaps(midpointLocation.address)}
+                    style={({ pressed }) => [
+                      styles.shareButton,
+                      { opacity: pressed ? 0.7 : 1 },
+                    ]}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Navigation size={18} color={colors.secondary} />
+                  </Pressable>
+                </View>
                 <Text style={styles.midpointLabel}>Midpoint location</Text>
               </View>
             </View>
@@ -736,10 +776,20 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     marginBottom: 4,
   },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: 4,
+  },
   midpointAddress: {
     fontSize: 14,
     color: colors.mutedForeground,
-    marginBottom: 4,
+    flex: 1,
+  },
+  shareButton: {
+    padding: 4,
+    marginTop: -2,
   },
   midpointLabel: {
     fontSize: 12,
