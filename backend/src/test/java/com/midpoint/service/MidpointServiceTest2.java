@@ -1,6 +1,7 @@
 package com.midpoint.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.midpoint.dto.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
