@@ -1,7 +1,9 @@
-package com.midpoint.dto;
+package dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.midpoint.dto.Coordinates;
+import com.midpoint.dto.Place;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
