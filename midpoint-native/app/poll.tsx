@@ -33,6 +33,8 @@ import { AuthService } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { Friend } from "../utils/types";
 import { FriendsService } from "../lib/friends";
+import { LocationInputWithAutocomplete } from "../components/LocationInputWithAutocomplete";
+import PlacesService, { PlacePrediction, PlaceDetails } from "../services/PlacesService";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -131,6 +133,9 @@ export default function ConfirmMidpointPage() {
                 myInvitation.status as "accepted" | "declined" | "pending"
               );
             }
+
+            // Fetch location proposals
+            await fetchLocationProposals(params.eventId, currentUserId);
           }
         } catch (err) {
           console.error("Error fetching event:", err);
@@ -144,11 +149,46 @@ export default function ConfirmMidpointPage() {
     fetchEventData();
   }, [params.eventId]);
 
+  // Fetch location proposals
+  const fetchLocationProposals = async (eventId: string, userId: string) => {
+    try {
+      const { data, error } = await EventsService.getLocationProposals(eventId);
+      if (error) {
+        console.error("Error fetching location proposals:", error);
+        return;
+      }
+      if (data) {
+        setLocationProposals(data);
+        // Track which locations the current user has voted for
+        const myVotes = new Set<string>();
+        data.forEach((location: any) => {
+          if (location.voters.some((v: any) => v.id === userId)) {
+            myVotes.add(location.place_id);
+          }
+        });
+        setMyLocationVotes(myVotes);
+      }
+    } catch (err) {
+      console.error("Error fetching location proposals:", err);
+    }
+  };
+
   // Parse midpoint data from params (for creating new event)
   const midpointData = params.midpointData
     ? JSON.parse(params.midpointData)
     : null;
   const activity = params.activity || "restaurants";
+
+  // Debug: Log midpoint data
+  useEffect(() => {
+    if (midpointData) {
+      console.log("📍 Midpoint data available:", {
+        hasPlaces: !!midpointData.places,
+        placesCount: midpointData.places?.length || 0,
+        places: midpointData.places?.slice(0, 3).map((p: any) => p.name),
+      });
+    }
+  }, [midpointData]);
 
   // Get location from event (if viewing) or midpoint data (if creating)
   const selectedPlace = event
@@ -172,6 +212,13 @@ export default function ConfirmMidpointPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [eventSaved, setEventSaved] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Location proposal state
+  const [locationProposals, setLocationProposals] = useState<any[]>([]);
+  const [proposalInput, setProposalInput] = useState("");
+  const [proposedPlace, setProposedPlace] = useState<PlacePrediction | null>(null);
+  const [isProposing, setIsProposing] = useState(false);
+  const [myLocationVotes, setMyLocationVotes] = useState<Set<string>>(new Set());
 
   // Convert invitations to Vote format for display
   const votes: Vote[] = friendInvitations
@@ -394,6 +441,136 @@ export default function ConfirmMidpointPage() {
       Linking.openURL(googleMapsUrl).catch((err) => {
         console.error("Failed to open Google Maps:", err);
       });
+    }
+  };
+
+  const openLocationInMaps = (location: any) => {
+    successHaptic();
+    if (location.coordinates?.lat && location.coordinates?.lng) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${location.coordinates.lat},${location.coordinates.lng}`;
+      Linking.openURL(url).catch((err) => {
+        console.error("Failed to open maps:", err);
+      });
+    } else {
+      openAddressInMaps(location.address);
+    }
+  };
+
+  // Handle place selection from autocomplete or midpoint places
+  const handlePlaceSelect = async (place: PlacePrediction | any) => {
+    setProposedPlace(place);
+    setProposalInput(place.description || place.address);
+  };
+
+  // Propose a location
+  const handleProposeLocation = async () => {
+    if (!params.eventId || !proposedPlace) {
+      Alert.alert("Error", "Please select a location first.");
+      return;
+    }
+
+    try {
+      setIsProposing(true);
+      successHaptic();
+
+      const currentUserId = await getCurrentUserId();
+
+      let coordinates: { lat: number; lng: number };
+      let name: string;
+      let address: string;
+
+      // Check if this is a place from midpointData (has coordinates already)
+      if (proposedPlace.coordinates) {
+        coordinates = proposedPlace.coordinates;
+        name = proposedPlace.name;
+        address = proposedPlace.address;
+      } else {
+        // Get place details from API (for autocomplete selections)
+        const placeDetails = await PlacesService.getPlaceDetails(proposedPlace.place_id);
+        if (!placeDetails || !placeDetails.geometry?.location) {
+          Alert.alert("Error", "Could not get location details. Please try again.");
+          setIsProposing(false);
+          return;
+        }
+
+        coordinates = {
+          lat: placeDetails.geometry.location.lat,
+          lng: placeDetails.geometry.location.lng,
+        };
+        name = placeDetails.name || proposedPlace.structured_formatting?.main_text || proposedPlace.name;
+        address = placeDetails.formatted_address || proposedPlace.description || proposedPlace.address;
+      }
+
+      const { error } = await EventsService.proposeLocation(
+        params.eventId,
+        currentUserId,
+        proposedPlace.place_id,
+        name,
+        address,
+        coordinates
+      );
+
+      if (error) {
+        Alert.alert("Error", error.message || "Failed to propose location.");
+        setIsProposing(false);
+        return;
+      }
+
+      // Refresh proposals
+      await fetchLocationProposals(params.eventId, currentUserId);
+      
+      // Clear input
+      setProposalInput("");
+      setProposedPlace(null);
+    } catch (err: any) {
+      console.error("Error proposing location:", err);
+      Alert.alert("Error", "Failed to propose location. Please try again.");
+    } finally {
+      setIsProposing(false);
+    }
+  };
+
+  // Vote/unvote for a location
+  const handleLocationVote = async (location: any) => {
+    if (!params.eventId) return;
+
+    try {
+      successHaptic();
+      const currentUserId = await getCurrentUserId();
+      const hasVoted = myLocationVotes.has(location.place_id);
+
+      if (hasVoted) {
+        // Remove vote
+        const { error } = await EventsService.removeLocationVote(
+          params.eventId,
+          currentUserId,
+          location.place_id
+        );
+        if (error) {
+          Alert.alert("Error", error.message || "Failed to remove vote.");
+          return;
+        }
+      } else {
+        // Add vote (propose if needed)
+        const { error } = await EventsService.proposeLocation(
+          params.eventId,
+          currentUserId,
+          location.place_id,
+          location.name,
+          location.address,
+          location.coordinates
+        );
+        if (error) {
+          Alert.alert("Error", error.message || "Failed to vote for location.");
+          return;
+        }
+      }
+
+      // Refresh proposals
+      await fetchLocationProposals(params.eventId, currentUserId);
+    } catch (err: any) {
+      console.error("Error voting for location:", err);
+      Alert.alert("Error", "Failed to vote. Please try again.");
     }
   };
 
@@ -658,6 +835,199 @@ export default function ConfirmMidpointPage() {
               ))
             )}
           </View>
+
+          {/* Show midpoint places list - Always show if we have places, even before event is created */}
+          {midpointData?.places && Array.isArray(midpointData.places) && midpointData.places.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Suggested Locations</Text>
+              <Text style={styles.midpointPlacesSubtitle}>
+                Tap a location below to propose it ({midpointData.places.length} options)
+              </Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={true}
+                style={styles.placesScrollView}
+                contentContainerStyle={styles.placesScrollContent}
+                nestedScrollEnabled={true}
+              >
+                {midpointData.places.map((place: any) => (
+                      <Pressable
+                        key={place.place_id}
+                        onPress={() => {
+                          successHaptic();
+                          // Pass the full place object (has coordinates already)
+                          handlePlaceSelect(place);
+                        }}
+                        style={({ pressed }) => [
+                          styles.placeChip,
+                          proposedPlace?.place_id === place.place_id && styles.placeChipSelected,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                      >
+                        <MapPin size={14} color={proposedPlace?.place_id === place.place_id ? colors.icon.white : colors.secondary} />
+                        <Text
+                          style={[
+                            styles.placeChipText,
+                            proposedPlace?.place_id === place.place_id && styles.placeChipTextSelected,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {place.name}
+                        </Text>
+                        {place.rating && (
+                          <Text style={[
+                            styles.placeRating,
+                            proposedPlace?.place_id === place.place_id && styles.placeRatingSelected
+                          ]}>
+                            ⭐ {place.rating.toFixed(1)}
+                          </Text>
+                        )}
+                      </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Alternative Locations Section - For proposing/voting on locations */}
+          {params.eventId && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Propose Alternative Location</Text>
+              
+              {/* Propose new location */}
+              <View style={styles.proposeLocationContainer}>
+                <Text style={styles.searchLabel}>Or search for a different location:</Text>
+                <LocationInputWithAutocomplete
+                  placeholder="Search for alternative location..."
+                  value={proposalInput}
+                  onChangeText={setProposalInput}
+                  onSelectPlace={handlePlaceSelect}
+                />
+                <Pressable
+                  onPress={handleProposeLocation}
+                  disabled={!proposedPlace || isProposing}
+                  style={({ pressed }) => [
+                    styles.proposeButton,
+                    (!proposedPlace || isProposing) && styles.proposeButtonDisabled,
+                    { opacity: pressed || !proposedPlace || isProposing ? 0.7 : 1 },
+                  ]}
+                >
+                  <Text style={styles.proposeButtonText}>
+                    {isProposing ? "Proposing..." : "Propose Location"}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* List of proposed locations - only show for existing events */}
+              {params.eventId && (
+                <>
+                  {locationProposals.length === 0 ? (
+                <View style={styles.emptyResponsesContainer}>
+                  <Text style={styles.emptyResponsesText}>
+                    No alternative locations proposed yet.
+                  </Text>
+                </View>
+              ) : (
+                locationProposals.map((location) => {
+                  const hasVoted = myLocationVotes.has(location.place_id);
+                  return (
+                    <View key={location.place_id} style={styles.locationCard}>
+                      <View style={styles.locationHeader}>
+                        <View style={styles.locationIconContainer}>
+                          <MapPin size={20} color={colors.secondary} />
+                        </View>
+                        <View style={styles.locationInfo}>
+                          <Text style={styles.locationName}>{location.name}</Text>
+                          <Text style={styles.locationAddress} numberOfLines={2}>
+                            {location.address}
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() => openLocationInMaps(location)}
+                          style={({ pressed }) => [
+                            styles.mapButton,
+                            { opacity: pressed ? 0.7 : 1 },
+                          ]}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Navigation size={18} color={colors.secondary} />
+                        </Pressable>
+                      </View>
+
+                      {/* Vote count and progress */}
+                      <View style={styles.locationVotesSection}>
+                        <View style={styles.voteCountHeader}>
+                          <Text style={styles.voteCountText}>
+                            {location.vote_count} {location.vote_count === 1 ? "vote" : "votes"}
+                          </Text>
+                          <Pressable
+                            onPress={() => handleLocationVote(location)}
+                            style={({ pressed }) => [
+                              styles.voteButton,
+                              hasVoted && styles.voteButtonActive,
+                              { opacity: pressed ? 0.7 : 1 },
+                            ]}
+                          >
+                            <ThumbsUp 
+                              size={16} 
+                              color={hasVoted ? colors.icon.white : colors.secondary} 
+                            />
+                            <Text
+                              style={[
+                                styles.voteButtonText,
+                                hasVoted && styles.voteButtonTextActive,
+                              ]}
+                            >
+                              {hasVoted ? "Voted" : "Vote"}
+                            </Text>
+                          </Pressable>
+                        </View>
+                        <View style={styles.progressBarContainer}>
+                          <LinearGradient
+                            colors={colors.gradients.header}
+                            style={[
+                              styles.progressBar,
+                              {
+                                width: `${Math.min((location.vote_count / totalParticipants) * 100, 100)}%`,
+                              },
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                          />
+                        </View>
+                        {/* Voter avatars */}
+                        {location.voters.length > 0 && (
+                          <View style={styles.votersContainer}>
+                            {location.voters.slice(0, 5).map((voter: any) => (
+                              <View key={voter.id} style={styles.voterAvatar}>
+                                <Avatar className="w-6 h-6">
+                                  <AvatarFallback className="bg-muted">
+                                    <Text style={styles.voterAvatarText}>
+                                      {getInitials(
+                                        voter.first_name && voter.last_name
+                                          ? `${voter.first_name} ${voter.last_name}`
+                                          : voter.username || "U"
+                                      )}
+                                    </Text>
+                                  </AvatarFallback>
+                                </Avatar>
+                              </View>
+                            ))}
+                            {location.voters.length > 5 && (
+                              <Text style={styles.moreVotersText}>
+                                +{location.voters.length - 5}
+                              </Text>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+                </>
+              )}
+            </View>
+          )}
 
           {/* Loading State */}
           {loading && (
@@ -1049,5 +1419,187 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.mutedForeground,
     textAlign: "center",
+  },
+  midpointPlacesContainer: {
+    marginBottom: 20,
+  },
+  midpointPlacesTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.foreground,
+    marginBottom: 12,
+  },
+  midpointPlacesSubtitle: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginBottom: 12,
+  },
+  placesScrollView: {
+    maxHeight: 60,
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+  },
+  placesScrollContent: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 24,
+    alignItems: "center",
+  },
+  placeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+  },
+  placeChipSelected: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  placeChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.foreground,
+    maxWidth: 150,
+  },
+  placeChipTextSelected: {
+    color: colors.white,
+  },
+  placeRating: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginLeft: 4,
+  },
+  placeRatingSelected: {
+    color: colors.white,
+  },
+  searchLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.mutedForeground,
+    marginBottom: 8,
+  },
+  proposeLocationContainer: {
+    marginBottom: 16,
+    gap: 12,
+  },
+  proposeButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proposeButtonDisabled: {
+    backgroundColor: colors.muted,
+    opacity: 0.6,
+  },
+  proposeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.white,
+  },
+  locationCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  locationHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 12,
+  },
+  locationIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colorOpacity.secondary["10"],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.foreground,
+    marginBottom: 4,
+  },
+  locationAddress: {
+    fontSize: 14,
+    color: colors.mutedForeground,
+  },
+  mapButton: {
+    padding: 4,
+    marginTop: -2,
+  },
+  locationVotesSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  voteCountHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  voteCountText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.secondary,
+  },
+  voteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    backgroundColor: colors.card,
+  },
+  voteButtonActive: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  voteButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.secondary,
+  },
+  voteButtonTextActive: {
+    color: colors.white,
+  },
+  votersContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  voterAvatar: {
+    marginRight: -8,
+  },
+  voterAvatarText: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: colors.foreground,
+  },
+  moreVotersText: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginLeft: 4,
   },
 });
