@@ -1,7 +1,6 @@
 package com.midpoint.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.midpoint.dto.PlaceDetails;
 import com.midpoint.dto.PlacePrediction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,16 +21,17 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"unchecked", "rawtypes"})
 class GoogleMapsServiceTest1 {
 
     @Mock
     private WebClient webClient;
 
     @Mock
-    private WebClient.RequestHeadersUriSpec<?> requestHeadersUriSpec;
+    private WebClient.RequestHeadersUriSpec requestHeadersUriSpec;
 
     @Mock
-    private WebClient.RequestHeadersSpec<?> requestHeadersSpec;
+    private WebClient.RequestHeadersSpec requestHeadersSpec;
 
     @Mock
     private WebClient.ResponseSpec responseSpec;
