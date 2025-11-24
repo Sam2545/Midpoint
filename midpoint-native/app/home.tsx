@@ -2,9 +2,10 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ArrowLeft, Plus, Calendar, UserPlus } from "lucide-react-native";
+import { Plus, Calendar, UserPlus, LogOut } from "lucide-react-native";
 import { colors } from "../constants/theme";
 import { successHaptic } from "../utils/haptics";
+import { AuthService } from "../lib/auth";
 import Navbar from "../components/Navbar";
 
 export default function HomeScreen() {
@@ -23,18 +24,32 @@ export default function HomeScreen() {
     router.push("/add-friends");
   };
 
+  const handleLogout = async () => {
+    successHaptic();
+    try {
+      await AuthService.signOut();
+      // Replace the entire navigation stack with the welcome screen
+      router.replace("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still navigate even if signOut fails
+      router.replace("/");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.content}>
-        {/* Back Button */}
+        {/* Logout Button */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleLogout}
           style={({ pressed }) => [
-            styles.backButton,
+            styles.logoutButton,
             { opacity: pressed ? 0.8 : 1 },
           ]}
         >
-          <ArrowLeft size={24} color={colors.foreground} />
+          <LogOut size={20} color={colors.mutedForeground} />
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </Pressable>
 
         {/* Buttons Section - Centered */}
@@ -95,12 +110,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "flex-start",
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    alignSelf: "flex-end",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     marginBottom: 40,
+    gap: 6,
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: colors.mutedForeground,
   },
   buttonsContainer: {
     flex: 1,
