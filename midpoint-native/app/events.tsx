@@ -10,6 +10,7 @@ import { EventsService } from '../lib/events';
 import { supabase } from '../lib/supabase';
 import { FriendsService } from '../lib/friends';
 import { AuthService } from '../lib/auth';
+import Navbar from '../components/Navbar';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -104,7 +105,7 @@ export default function EventsPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.content}>
         {/* Header Section with Gradient */}
         <LinearGradient
@@ -202,6 +203,7 @@ export default function EventsPage() {
           )}
         </ScrollView>
       </View>
+      <Navbar />
     </SafeAreaView>
   );
 }
@@ -268,7 +270,7 @@ const styles = StyleSheet.create({
   bodyScrollContent: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   eventCard: {
     backgroundColor: colors.card,
