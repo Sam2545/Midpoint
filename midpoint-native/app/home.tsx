@@ -1,30 +1,30 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { ArrowLeft, Plus, Calendar, UserPlus } from 'lucide-react-native';
-import { colors } from '../constants/theme';
-import { successHaptic } from '../utils/haptics';
-import Navbar from '../components/Navbar';
+import React from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { ArrowLeft, Plus, Calendar, UserPlus } from "lucide-react-native";
+import { colors } from "../constants/theme";
+import { successHaptic } from "../utils/haptics";
+import Navbar from "../components/Navbar";
 
 export default function HomeScreen() {
   const handlePlanHangout = () => {
     successHaptic();
-    router.push('/locations');
+    router.push("/locations");
   };
 
   const handleViewEvents = () => {
     successHaptic();
-    router.push('/events');
+    router.push("/events");
   };
 
   const handleAddFriends = () => {
     successHaptic();
-    router.push('/add-friends');
+    router.push("/add-friends");
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.content}>
         {/* Back Button */}
         <Pressable
@@ -61,7 +61,9 @@ export default function HomeScreen() {
             ]}
           >
             <Calendar size={20} color={colors.primary} />
-            <Text style={styles.primaryOutlineButtonText}>View Existing Events</Text>
+            <Text style={styles.primaryOutlineButtonText}>
+              View Existing Events
+            </Text>
           </Pressable>
 
           {/* Add Friends Button */}
@@ -96,26 +98,26 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    justifyContent: "center",
+    alignItems: "flex-start",
     marginBottom: 40,
   },
   buttonsContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     gap: 16,
     maxWidth: 400,
-    alignSelf: 'center',
-    width: '100%',
+    alignSelf: "center",
+    width: "100%",
   },
   primaryButton: {
-    width: '100%',
+    width: "100%",
     height: 56,
     backgroundColor: colors.primary,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 20,
     gap: 12,
     shadowColor: colors.black,
@@ -126,17 +128,17 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.white,
   },
   outlineButton: {
-    width: '100%',
+    width: "100%",
     height: 56,
     backgroundColor: colors.card,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 20,
     gap: 12,
     borderWidth: 2,
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
   },
   primaryOutlineButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   secondaryOutlineButton: {
@@ -154,8 +156,7 @@ const styles = StyleSheet.create({
   },
   secondaryOutlineButtonText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.secondary,
   },
 });
-

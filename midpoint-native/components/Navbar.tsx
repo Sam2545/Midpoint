@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useSegments, useRouter } from 'expo-router';
-import { Home, Calendar, Plus, UserPlus } from 'lucide-react-native';
-import { colors } from '../constants/theme';
-import { successHaptic } from '../utils/haptics';
+import React from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useSegments, useRouter } from "expo-router";
+import { Home, Calendar, Plus, UserPlus } from "lucide-react-native";
+import { colors } from "../constants/theme";
+import { successHaptic } from "../utils/haptics";
 
 type NavItem = {
   route: string;
@@ -12,18 +12,18 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { route: '/home', label: 'Home', icon: Home },
-  { route: '/events', label: 'Events', icon: Calendar },
-  { route: '/locations', label: 'Create', icon: Plus },
-  { route: '/add-friends', label: 'Friends', icon: UserPlus },
+  { route: "/home", label: "Home", icon: Home },
+  { route: "/events", label: "Events", icon: Calendar },
+  { route: "/locations", label: "Create", icon: Plus },
+  { route: "/add-friends", label: "Friends", icon: UserPlus },
 ];
 
 export default function Navbar() {
   const segments = useSegments();
   const router = useRouter();
-  
+
   // Construct pathname from segments
-  const pathname = segments.length > 0 ? '/' + segments.join('/') : '/';
+  const pathname = segments.length > 0 ? "/" + segments.join("/") : "/";
 
   const handlePress = (route: string) => {
     successHaptic();
@@ -36,7 +36,9 @@ export default function Navbar() {
       {navItems.map((item) => {
         const Icon = item.icon;
         // Handle index route (/) as home
-        const isActive = pathname === item.route || (item.route === '/home' && (pathname === '/' || pathname === ''));
+        const isActive =
+          pathname === item.route ||
+          (item.route === "/home" && (pathname === "/" || pathname === ""));
         const iconColor = isActive ? colors.primary : colors.mutedForeground;
         const textColor = isActive ? colors.primary : colors.mutedForeground;
 
@@ -62,7 +64,7 @@ export default function Navbar() {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -77,14 +79,13 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
     gap: 4,
   },
   navLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
-
