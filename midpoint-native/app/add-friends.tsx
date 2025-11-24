@@ -9,6 +9,7 @@ import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
 import { FriendsService, FriendRequest } from '../lib/friends';
 import { Friend } from '../utils/types';
+import Navbar from '../components/Navbar';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -401,7 +402,7 @@ export default function AddFriendsPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.content}>
         {/* Header Section with Gradient */}
         <LinearGradient
@@ -505,6 +506,7 @@ export default function AddFriendsPage() {
           </View>
         </ScrollView>
       </View>
+      <Navbar />
     </SafeAreaView>
   );
 }
@@ -640,7 +642,7 @@ const styles = StyleSheet.create({
   bodyScrollContent: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   searchBar: {
     flexDirection: 'row',

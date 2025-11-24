@@ -8,6 +8,7 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -26,6 +27,7 @@ import { successHaptic } from "../utils/haptics";
 import { colors, colorOpacity } from "../constants/theme";
 import PlacesService from "../services/PlacesService";
 import { getApiBaseUrl } from "../utils/network";
+import Navbar from "../components/Navbar";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.25;
@@ -39,6 +41,24 @@ export default function LocationsPage() {
   const [coordinates, setCoordinates] = useState<{
     [key: string]: { lat: number; lng: number };
   }>({});
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Handle keyboard visibility to hide navbar
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   // Update locations when friends change
   useEffect(() => {
@@ -208,7 +228,7 @@ export default function LocationsPage() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex1}
@@ -351,6 +371,7 @@ export default function LocationsPage() {
             </View>
           </ScrollView>
         </View>
+        {!isKeyboardVisible && <Navbar />}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -421,7 +442,7 @@ const styles = StyleSheet.create({
   bodyScrollContent: {
     paddingHorizontal: 24,
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   section: {
     marginBottom: 24,
