@@ -43,7 +43,9 @@ public class MidpointService {
             throw new IllegalArgumentException("No coordinates provided");
         }
 
-        double x = 0, y = 0, z = 0;
+        double x = 0;
+        double y = 0;
+        double z = 0;
 
         for (Coordinates coord : coords) {
             double latRad = Math.toRadians(coord.getLat());

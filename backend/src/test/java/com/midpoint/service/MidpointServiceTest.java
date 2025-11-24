@@ -1,6 +1,5 @@
 package com.midpoint.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.midpoint.dto.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,10 +28,10 @@ class MidpointServiceTest {
     private WebClient webClient;
 
     @Mock
-    private WebClient.RequestHeadersUriSpec requestHeadersUriSpec;
+    private WebClient.RequestHeadersUriSpec<WebClient.RequestBodySpec> requestHeadersUriSpec;
 
     @Mock
-    private WebClient.RequestHeadersSpec requestHeadersSpec;
+    private WebClient.RequestBodySpec requestHeadersSpec;
 
     @Mock
     private WebClient.ResponseSpec responseSpec;
@@ -175,7 +174,7 @@ class MidpointServiceTest {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "{\"status\":\"OK\",\"results\":[{\"formatted_address\":\"New York, NY, USA\"}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -191,7 +190,7 @@ class MidpointServiceTest {
     void testReverseGeocode_Error() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("API Error")));
@@ -208,7 +207,7 @@ class MidpointServiceTest {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "{\"status\":\"ZERO_RESULTS\"}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -250,7 +249,7 @@ class MidpointServiceTest {
             "\"types\":[\"restaurant\",\"food\"]" +
             "}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -291,7 +290,7 @@ class MidpointServiceTest {
             "}]" +
             "}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -321,7 +320,7 @@ class MidpointServiceTest {
         
         String mockResponse = "{\"status\":\"INVALID_REQUEST\"}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -339,7 +338,7 @@ class MidpointServiceTest {
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("Network error")));
@@ -388,7 +387,7 @@ class MidpointServiceTest {
             "{\"elements\":[{\"status\":\"OK\",\"distance\":{\"value\":2000,\"text\":\"2 km\"},\"duration\":{\"value\":600,\"text\":\"10 mins\"}}]}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -423,7 +422,7 @@ class MidpointServiceTest {
         
         String mockResponse = "{\"status\":\"INVALID_REQUEST\"}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -444,7 +443,7 @@ class MidpointServiceTest {
             "{\"elements\":[{\"status\":\"NOT_FOUND\"}]}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -467,7 +466,7 @@ class MidpointServiceTest {
         List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
         List<Place> places = Arrays.asList(createTestPlace());
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.error(new RuntimeException("Network error")));
@@ -500,7 +499,7 @@ class MidpointServiceTest {
             "{\"elements\":[{\"status\":\"OK\",\"distance\":{\"value\":2000,\"text\":\"2 km\"},\"duration\":{\"value\":600,\"text\":\"10 mins\"}}]}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class))
@@ -533,7 +532,7 @@ class MidpointServiceTest {
         String geocodeResponse = "{\"status\":\"OK\",\"results\":[{\"formatted_address\":\"New York, NY, USA\"}]}";
         String placesResponse = "{\"status\":\"OK\",\"results\":[]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class))
@@ -559,7 +558,7 @@ class MidpointServiceTest {
             "{\"elements\":[{\"status\":\"OK\",\"duration\":{\"value\":300,\"text\":\"5 mins\"}}]}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -587,7 +586,7 @@ class MidpointServiceTest {
             "{\"elements\":[{\"status\":\"OK\",\"distance\":{\"value\":1000,\"text\":\"1 km\"}}]}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -623,7 +622,7 @@ class MidpointServiceTest {
             ]}
             """;
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -648,7 +647,7 @@ class MidpointServiceTest {
         
         String mockResponse = "{\"status\":\"OK\"}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -667,7 +666,7 @@ class MidpointServiceTest {
         
         String mockResponse = "{\"status\":\"OK\",\"rows\":invalid}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -691,7 +690,7 @@ class MidpointServiceTest {
             "\"vicinity\":\"123 Main St\"" +
             "}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -721,7 +720,7 @@ class MidpointServiceTest {
             "\"geometry\":{\"location\":{\"lat\":40.7130,\"lng\":-74.0060}}" +
             "}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -750,7 +749,7 @@ class MidpointServiceTest {
             "\"geometry\":{\"location\":{\"lat\":40.7130,\"lng\":-74.0060}}" +
             "}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -779,7 +778,7 @@ class MidpointServiceTest {
             "\"geometry\":{\"location\":{\"lat\":40.7130,\"lng\":-74.0060}}}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -803,7 +802,7 @@ class MidpointServiceTest {
         
         String mockResponse = "{\"status\":\"OK\",\"results\":[]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -842,7 +841,7 @@ class MidpointServiceTest {
             "]}" +
             "]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class))
@@ -871,7 +870,7 @@ class MidpointServiceTest {
         
         String placesResponse = "{\"status\":\"OK\",\"results\":[]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class))
@@ -900,7 +899,7 @@ class MidpointServiceTest {
         
         String geocodeResponse = "{\"status\":\"OK\",\"results\":[{\"formatted_address\":\"New York, NY, USA\"}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class))
@@ -923,7 +922,7 @@ class MidpointServiceTest {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "invalid json";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -940,7 +939,7 @@ class MidpointServiceTest {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "{\"status\":\"OK\",\"results\":[]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
@@ -957,7 +956,7 @@ class MidpointServiceTest {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "{\"status\":\"OK\",\"results\":[{}]}";
         
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
