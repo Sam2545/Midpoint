@@ -55,7 +55,7 @@ class PlacesControllerTest {
         
         List<PlacePrediction> predictions = Arrays.asList(prediction);
         
-        when(googleMapsService.getPlaceAutocomplete(eq("Test"), anyString()))
+        when(googleMapsService.getPlaceAutocomplete("Test", anyString()))
             .thenReturn(Mono.just(predictions));
         
         webTestClient.get()
@@ -76,7 +76,7 @@ class PlacesControllerTest {
     void testGetPlaceAutocomplete_WithSessionToken() {
         List<PlacePrediction> predictions = Collections.emptyList();
         
-        when(googleMapsService.getPlaceAutocomplete(eq("Test"), eq("custom-token")))
+        when(googleMapsService.getPlaceAutocomplete("Test", "custom-token"))
             .thenReturn(Mono.just(predictions));
         
         webTestClient.get()
@@ -89,7 +89,7 @@ class PlacesControllerTest {
 
     @Test
     void testGetPlaceAutocomplete_Error() {
-        when(googleMapsService.getPlaceAutocomplete(eq("Test"), anyString()))
+        when(googleMapsService.getPlaceAutocomplete("Test", anyString()))
             .thenReturn(Mono.error(new RuntimeException("Service error")));
         
         webTestClient.get()
@@ -112,7 +112,7 @@ class PlacesControllerTest {
         geometry.setLocation(location);
         details.setGeometry(geometry);
         
-        when(googleMapsService.getPlaceDetails(eq("test-place-id"), anyString()))
+        when(googleMapsService.getPlaceDetails("test-place-id", anyString()))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()
@@ -133,7 +133,7 @@ class PlacesControllerTest {
     void testGetPlaceDetails_WithSessionToken() {
         PlaceDetails details = new PlaceDetails();
         
-        when(googleMapsService.getPlaceDetails(eq("test-place-id"), eq("custom-token")))
+        when(googleMapsService.getPlaceDetails("test-place-id", "custom-token"))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()
@@ -145,7 +145,7 @@ class PlacesControllerTest {
 
     @Test
     void testGetPlaceDetails_Error() {
-        when(googleMapsService.getPlaceDetails(eq("test-place-id"), anyString()))
+        when(googleMapsService.getPlaceDetails("test-place-id", anyString()))
             .thenReturn(Mono.error(new RuntimeException("Service error")));
         
         webTestClient.get()
@@ -349,7 +349,7 @@ class PlacesControllerTest {
     void testGetPlaceAutocomplete_EmptyInput() {
         List<PlacePrediction> predictions = Collections.emptyList();
         
-        when(googleMapsService.getPlaceAutocomplete(eq(""), anyString()))
+        when(googleMapsService.getPlaceAutocomplete("", anyString()))
             .thenReturn(Mono.just(predictions));
         
         webTestClient.get()
@@ -364,7 +364,7 @@ class PlacesControllerTest {
     void testGetPlaceDetails_EmptyPlaceId() {
         PlaceDetails details = new PlaceDetails();
         
-        when(googleMapsService.getPlaceDetails(eq(""), anyString()))
+        when(googleMapsService.getPlaceDetails("", anyString()))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()

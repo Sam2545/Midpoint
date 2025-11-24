@@ -5,6 +5,9 @@ import com.midpoint.dto.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -16,6 +19,7 @@ import reactor.test.StepVerifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -170,7 +174,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testReverseGeocode_Success() throws Exception {
+    void testReverseGeocode_Success() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "{\"status\":\"OK\",\"results\":[{\"formatted_address\":\"New York, NY, USA\"}]}";
         
@@ -202,10 +206,10 @@ class MidpointServiceTest {
             .verifyComplete();
     }
 
-    @Test
-    void testReverseGeocode_InvalidResponse() throws Exception {
+    @ParameterizedTest
+    @MethodSource("reverseGeocodeErrorScenarios")
+    void testReverseGeocode_ErrorScenarios(String mockResponse, String testName) {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
-        String mockResponse = "{\"status\":\"ZERO_RESULTS\"}";
         
         doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
@@ -217,6 +221,15 @@ class MidpointServiceTest {
         StepVerifier.create(result)
             .expectNextMatches(address -> address.contains("40.7128") && address.contains("-74.0060"))
             .verifyComplete();
+    }
+    
+    static Stream<Arguments> reverseGeocodeErrorScenarios() {
+        return Stream.of(
+            Arguments.of("{\"status\":\"ZERO_RESULTS\"}", "InvalidResponse"),
+            Arguments.of("invalid json", "ParseError"),
+            Arguments.of("{\"status\":\"OK\",\"results\":[]}", "EmptyResults"),
+            Arguments.of("{\"status\":\"OK\",\"results\":[{}]}", "MissingFormattedAddress")
+        );
     }
 
     @Test
@@ -233,7 +246,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_Success() throws Exception {
+    void testSearchPlaces_Success() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = Arrays.asList("restaurant");
         int radiusMeters = 5000;
@@ -273,7 +286,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_WithPhotos() throws Exception {
+    void testSearchPlaces_WithPhotos() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -313,7 +326,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_APIError() throws Exception {
+    void testSearchPlaces_APIError() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -375,7 +388,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testComputeTravelSummaries_Success() throws Exception {
+    void testComputeTravelSummaries_Success() {
         List<Coordinates> origins = Arrays.asList(
             new Coordinates(40.7128, -74.0060),
             new Coordinates(40.7589, -73.9851)
@@ -415,12 +428,11 @@ class MidpointServiceTest {
             .verifyComplete();
     }
 
-    @Test
-    void testComputeTravelSummaries_NonOKStatus() throws Exception {
+    @ParameterizedTest
+    @MethodSource("computeTravelSummariesErrorScenarios")
+    void testComputeTravelSummaries_ErrorScenarios(String mockResponse, String testName) {
         List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
         List<Place> places = Arrays.asList(createTestPlace());
-        
-        String mockResponse = "{\"status\":\"INVALID_REQUEST\"}";
         
         doReturn(requestHeadersUriSpec).when(webClient).get();
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
@@ -433,9 +445,17 @@ class MidpointServiceTest {
             .assertNext(resultPlaces -> assertEquals(1, resultPlaces.size()))
             .verifyComplete();
     }
+    
+    static Stream<Arguments> computeTravelSummariesErrorScenarios() {
+        return Stream.of(
+            Arguments.of("{\"status\":\"INVALID_REQUEST\"}", "NonOKStatus"),
+            Arguments.of("{\"status\":\"OK\"}", "MissingRows"),
+            Arguments.of("{\"status\":\"OK\",\"rows\":invalid}", "ParsingError")
+        );
+    }
 
     @Test
-    void testComputeTravelSummaries_ElementError() throws Exception {
+    void testComputeTravelSummaries_ElementError() {
         List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
         List<Place> places = Arrays.asList(createTestPlace());
         
@@ -479,7 +499,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testFindMidpointAndPlaces_Success() throws Exception {
+    void testFindMidpointAndPlaces_Success() {
         MidpointRequest request = new MidpointRequest();
         request.setCoords(Arrays.asList(
             new Coordinates(40.7128, -74.0060),
@@ -521,7 +541,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testFindMidpointAndPlaces_WithCorrection() throws Exception {
+    void testFindMidpointAndPlaces_WithCorrection() {
         MidpointRequest request = new MidpointRequest();
         request.setCoords(Arrays.asList(
             new Coordinates(40.7128, -74.0060),
@@ -550,7 +570,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testComputeTravelSummaries_MissingDistance() throws Exception {
+    void testComputeTravelSummaries_MissingDistance() {
         List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
         List<Place> places = Arrays.asList(createTestPlace());
         
@@ -578,7 +598,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testComputeTravelSummaries_MissingDuration() throws Exception {
+    void testComputeTravelSummaries_MissingDuration() {
         List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
         List<Place> places = Arrays.asList(createTestPlace());
         
@@ -606,7 +626,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testComputeTravelSummaries_MultiplePlaces() throws Exception {
+    void testComputeTravelSummaries_MultiplePlaces() {
         List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
         List<Place> places = Arrays.asList(
             createTestPlace(),
@@ -640,46 +660,9 @@ class MidpointServiceTest {
             .verifyComplete();
     }
 
-    @Test
-    void testComputeTravelSummaries_MissingRows() throws Exception {
-        List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
-        List<Place> places = Arrays.asList(createTestPlace());
-        
-        String mockResponse = "{\"status\":\"OK\"}";
-        
-        doReturn(requestHeadersUriSpec).when(webClient).get();
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
-        
-        Mono<List<Place>> result = midpointService.computeTravelSummaries(origins, places, "driving");
-        
-        StepVerifier.create(result)
-            .assertNext(resultPlaces -> assertEquals(1, resultPlaces.size()))
-            .verifyComplete();
-    }
 
     @Test
-    void testComputeTravelSummaries_ParsingError() throws Exception {
-        List<Coordinates> origins = Arrays.asList(new Coordinates(40.7128, -74.0060));
-        List<Place> places = Arrays.asList(createTestPlace());
-        
-        String mockResponse = "{\"status\":\"OK\",\"rows\":invalid}";
-        
-        doReturn(requestHeadersUriSpec).when(webClient).get();
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
-        
-        Mono<List<Place>> result = midpointService.computeTravelSummaries(origins, places, "driving");
-        
-        StepVerifier.create(result)
-            .assertNext(resultPlaces -> assertEquals(1, resultPlaces.size()))
-            .verifyComplete();
-    }
-
-    @Test
-    void testSearchPlaces_WithoutGeometry() throws Exception {
+    void testSearchPlaces_WithoutGeometry() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -708,7 +691,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_WithoutTypes() throws Exception {
+    void testSearchPlaces_WithoutTypes() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -737,7 +720,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_WithFormattedAddress() throws Exception {
+    void testSearchPlaces_WithFormattedAddress() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -766,7 +749,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_MultiplePlacesSorted() throws Exception {
+    void testSearchPlaces_MultiplePlacesSorted() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -795,7 +778,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testSearchPlaces_EmptyResults() throws Exception {
+    void testSearchPlaces_EmptyResults() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         List<String> types = new ArrayList<>();
         int radiusMeters = 5000;
@@ -815,7 +798,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testFindMidpointAndPlaces_MoreThan20Places() throws Exception {
+    void testFindMidpointAndPlaces_MoreThan20Places() {
         MidpointRequest request = new MidpointRequest();
         request.setCoords(Arrays.asList(
             new Coordinates(40.7128, -74.0060),
@@ -860,7 +843,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testFindMidpointAndPlaces_ReverseGeocodeError() throws Exception {
+    void testFindMidpointAndPlaces_ReverseGeocodeError() {
         MidpointRequest request = new MidpointRequest();
         request.setCoords(Arrays.asList(
             new Coordinates(40.7128, -74.0060),
@@ -889,7 +872,7 @@ class MidpointServiceTest {
     }
 
     @Test
-    void testFindMidpointAndPlaces_SearchPlacesError() throws Exception {
+    void testFindMidpointAndPlaces_SearchPlacesError() {
         MidpointRequest request = new MidpointRequest();
         request.setCoords(Arrays.asList(
             new Coordinates(40.7128, -74.0060),
@@ -917,56 +900,6 @@ class MidpointServiceTest {
             .verifyComplete();
     }
 
-    @Test
-    void testReverseGeocode_ParseError() {
-        Coordinates coordinates = new Coordinates(40.7128, -74.0060);
-        String mockResponse = "invalid json";
-        
-        doReturn(requestHeadersUriSpec).when(webClient).get();
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
-        
-        Mono<String> result = midpointService.reverseGeocode(coordinates);
-        
-        StepVerifier.create(result)
-            .expectNextMatches(address -> address.contains("40.7128") && address.contains("-74.0060"))
-            .verifyComplete();
-    }
-
-    @Test
-    void testReverseGeocode_EmptyResults() {
-        Coordinates coordinates = new Coordinates(40.7128, -74.0060);
-        String mockResponse = "{\"status\":\"OK\",\"results\":[]}";
-        
-        doReturn(requestHeadersUriSpec).when(webClient).get();
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
-        
-        Mono<String> result = midpointService.reverseGeocode(coordinates);
-        
-        StepVerifier.create(result)
-            .expectNextMatches(address -> address.contains("40.7128") && address.contains("-74.0060"))
-            .verifyComplete();
-    }
-
-    @Test
-    void testReverseGeocode_MissingFormattedAddress() {
-        Coordinates coordinates = new Coordinates(40.7128, -74.0060);
-        String mockResponse = "{\"status\":\"OK\",\"results\":[{}]}";
-        
-        doReturn(requestHeadersUriSpec).when(webClient).get();
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
-        
-        Mono<String> result = midpointService.reverseGeocode(coordinates);
-        
-        StepVerifier.create(result)
-            .expectNextMatches(address -> address.contains("40.7128") && address.contains("-74.0060"))
-            .verifyComplete();
-    }
 
     private Place createTestPlace() {
         Place place = new Place();
