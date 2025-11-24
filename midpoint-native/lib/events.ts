@@ -252,5 +252,131 @@ export class EventsService {
       return { data: null, error: { message: error.message || 'Failed to get events' } }
     }
   }
+
+  /**
+   * Propose/vote for an alternative location
+   * This both proposes the location (if first time) and votes for it
+   */
+  static async proposeLocation(
+    eventId: string,
+    userId: string,
+    placeId: string,
+    name: string,
+    address: string,
+    coordinates: { lat: number; lng: number }
+  ): Promise<{ data: any | null; error: any }> {
+    try {
+      const { data, error } = await supabase
+        .from('event_location_votes')
+        .insert({
+          event_id: eventId,
+          user_id: userId,
+          place_id: placeId,
+          name,
+          address,
+          coordinates,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        // If it's a unique constraint violation, user already voted for this location
+        if (error.code === '23505') {
+          return { data: null, error: { message: 'You already voted for this location' } }
+        }
+        throw error
+      }
+      return { data, error: null }
+    } catch (error: any) {
+      return { data: null, error: { message: error.message || 'Failed to propose location' } }
+    }
+  }
+
+  /**
+   * Remove vote for a location (toggle off)
+   */
+  static async removeLocationVote(
+    eventId: string,
+    userId: string,
+    placeId: string
+  ): Promise<{ data: null; error: any }> {
+    try {
+      const { error } = await supabase
+        .from('event_location_votes')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .eq('place_id', placeId)
+
+      if (error) throw error
+      return { data: null, error: null }
+    } catch (error: any) {
+      return { data: null, error: { message: error.message || 'Failed to remove location vote' } }
+    }
+  }
+
+  /**
+   * Get all location proposals with vote counts and voters
+   * Groups by place_id and includes user info
+   */
+  static async getLocationProposals(
+    eventId: string
+  ): Promise<{ data: any[] | null; error: any }> {
+    try {
+      const { data: votes, error } = await supabase
+        .from('event_location_votes')
+        .select(`
+          *,
+          user:users(id, username, first_name, last_name)
+        `)
+        .eq('event_id', eventId)
+        .order('voted_at', { ascending: false })
+
+      if (error) throw error
+
+      if (!votes || votes.length === 0) {
+        return { data: [], error: null }
+      }
+
+      // Group by place_id to get unique locations with vote counts
+      const locationMap = new Map<string, any>()
+
+      votes.forEach((vote: any) => {
+        const placeId = vote.place_id
+        if (!locationMap.has(placeId)) {
+          locationMap.set(placeId, {
+            place_id: placeId,
+            name: vote.name,
+            address: vote.address,
+            coordinates: vote.coordinates,
+            vote_count: 0,
+            voters: [],
+            first_proposed_at: vote.voted_at,
+          })
+        }
+
+        const location = locationMap.get(placeId)!
+        location.vote_count++
+        if (vote.user) {
+          location.voters.push({
+            id: vote.user.id,
+            username: vote.user.username,
+            first_name: vote.user.first_name,
+            last_name: vote.user.last_name,
+            voted_at: vote.voted_at,
+          })
+        }
+      })
+
+      // Convert map to array and sort by vote count (descending)
+      const locations = Array.from(locationMap.values()).sort(
+        (a, b) => b.vote_count - a.vote_count
+      )
+
+      return { data: locations, error: null }
+    } catch (error: any) {
+      return { data: null, error: { message: error.message || 'Failed to get location proposals' } }
+    }
+  }
 }
 

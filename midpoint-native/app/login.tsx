@@ -41,7 +41,7 @@ export default function LoginScreen() {
           FriendsService.setCurrentUserId(result.data.profile.id);
         }
         successHaptic();
-        router.push('/home');
+        router.replace('/home');
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');

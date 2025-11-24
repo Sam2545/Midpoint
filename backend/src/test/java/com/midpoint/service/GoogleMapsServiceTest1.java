@@ -1,7 +1,6 @@
 package com.midpoint.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.midpoint.dto.PlaceDetails;
 import com.midpoint.dto.PlacePrediction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,16 +21,17 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"unchecked", "rawtypes"})
 class GoogleMapsServiceTest1 {
 
     @Mock
     private WebClient webClient;
 
     @Mock
-    private WebClient.RequestHeadersUriSpec<?> requestHeadersUriSpec;
+    private WebClient.RequestHeadersUriSpec requestHeadersUriSpec;
 
     @Mock
-    private WebClient.RequestHeadersSpec<?> requestHeadersSpec;
+    private WebClient.RequestHeadersSpec requestHeadersSpec;
 
     @Mock
     private WebClient.ResponseSpec responseSpec;
@@ -125,6 +125,60 @@ class GoogleMapsServiceTest1 {
 
         StepVerifier.create(mono)
             .assertNext(list -> assertTrue(list.isEmpty()))
+            .verifyComplete();
+    }
+
+    @Test
+    void testParseAutocompleteResponse_MultiplePredictions_Loop() {
+        // Test the loop in parseAutocompleteResponse (line 70)
+        // This ensures the loop processes all predictions in the array
+        String mockResponse = """
+            {
+              "predictions": [
+                {
+                  "place_id": "pid-1",
+                  "description": "First Place, City, State",
+                  "structured_formatting": {
+                    "main_text": "First Place"
+                  }
+                },
+                {
+                  "place_id": "pid-2",
+                  "description": "Second Place, City, State",
+                  "structured_formatting": {
+                    "main_text": "Second Place"
+                  }
+                },
+                {
+                  "place_id": "pid-3",
+                  "description": "Third Place, City, State",
+                  "structured_formatting": {
+                    "main_text": "Third Place"
+                  }
+                }
+              ],
+              "status": "OK"
+            }
+            """;
+
+        when(webClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
+
+        Mono<List<PlacePrediction>> mono = googleMapsService.getPlaceAutocomplete("test", "session-123");
+
+        StepVerifier.create(mono)
+            .assertNext(predictions -> {
+                // The loop should process all 3 predictions
+                assertEquals(3, predictions.size(), 
+                    "Loop should process all 3 predictions");
+                
+                // Verify each prediction was processed by the loop
+                assertEquals("pid-1", predictions.get(0).getPlaceId());
+                assertEquals("pid-2", predictions.get(1).getPlaceId());
+                assertEquals("pid-3", predictions.get(2).getPlaceId());
+            })
             .verifyComplete();
     }
 

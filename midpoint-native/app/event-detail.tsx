@@ -120,7 +120,14 @@ export default function EventDetailPage() {
         Alert.alert(
           "Event Saved!",
           "Your event has been saved and invitations have been sent.",
-          [{ text: "OK" }]
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                router.push("/events");
+              },
+            },
+          ]
         );
       }
     } catch (error: any) {

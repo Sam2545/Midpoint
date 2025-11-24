@@ -1,9 +1,11 @@
 package com.midpoint.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.midpoint.dto.PlaceDetails;
 import com.midpoint.dto.PlacePrediction;
+import com.midpoint.exception.PlacesResponseParsingException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -86,8 +88,8 @@ public class GoogleMapsService {
                 }
             }
             return result;
-        } catch (Exception e) {
-            throw new RuntimeException("Error parsing autocomplete response", e);
+        } catch (JsonProcessingException e) {
+            throw new PlacesResponseParsingException("Error parsing autocomplete response", e);
         }
     }
 
@@ -141,8 +143,8 @@ public class GoogleMapsService {
             }
             
             return placeDetails;
-        } catch (Exception e) {
-            throw new RuntimeException("Error parsing place details response", e);
+        } catch (JsonProcessingException e) {
+            throw new PlacesResponseParsingException("Error parsing place details response", e);
         }
     }
 }
