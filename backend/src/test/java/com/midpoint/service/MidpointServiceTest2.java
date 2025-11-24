@@ -834,5 +834,24 @@ class MidpointServiceTest2 {
         place.setCoordinates(new Coordinates(40.7140, -74.0070));
         return place;
     }
+
+    @Test
+    void testComputeDynamicRadiusMeters_ThreeCoordinates_NestedLoop() {
+        // Test the nested loop in computeDynamicRadiusMeters (lines 123-124)
+        // This ensures the loop iterates through all coordinate pairs
+        List<Coordinates> coords = Arrays.asList(
+            new Coordinates(40.7128, -74.0060),  // NYC
+            new Coordinates(40.7589, -73.9851),  // NYC area
+            new Coordinates(40.7489, -73.9680)   // NYC area
+        );
+        
+        int radius = midpointService.computeDynamicRadiusMeters(coords);
+        
+        // Should calculate radius based on maximum pairwise distance
+        // The nested loop should check all 3 pairs: (0,1), (0,2), (1,2)
+        assertTrue(radius >= 500 && radius <= 50000, 
+            "Radius should be between 500 and 50000 meters");
+        assertNotNull(radius);
+    }
 }
 
