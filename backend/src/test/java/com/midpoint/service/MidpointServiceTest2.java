@@ -935,7 +935,6 @@ class MidpointServiceTest2 {
         // The nested loop should check all 3 pairs: (0,1), (0,2), (1,2)
         assertTrue(radius >= 500 && radius <= 50000, 
             "Radius should be between 500 and 50000 meters");
-        assertNotNull(radius);
     }
 }
 
