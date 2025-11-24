@@ -1,5 +1,7 @@
-package com.midpoint.dto;
+package dto;
 
+import com.midpoint.dto.Coordinates;
+import com.midpoint.dto.MidpointRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
