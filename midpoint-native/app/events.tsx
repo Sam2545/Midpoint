@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions, RefreshControl, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Calendar, MapPin, Clock, Users, ThumbsUp } from 'lucide-react-native';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, ThumbsUp, Navigation } from 'lucide-react-native';
 import { successHaptic } from '../utils/haptics';
 import { colors, colorOpacity } from '../constants/theme';
 import { EventsService } from '../lib/events';
@@ -104,6 +104,31 @@ export default function EventsPage() {
     });
   };
 
+  const openAddressInMaps = (address: string) => {
+    successHaptic();
+    
+    // Encode the address for URL
+    const encodedAddress = encodeURIComponent(address);
+    
+    // Try to open in Apple Maps first on iOS, then fallback to Google Maps
+    if (Platform.OS === 'ios') {
+      const appleMapsUrl = `maps://maps.apple.com/?q=${encodedAddress}`;
+      Linking.openURL(appleMapsUrl).catch(() => {
+        // Fallback to Google Maps if Apple Maps fails
+        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+        Linking.openURL(googleMapsUrl).catch((err) => {
+          console.error("Failed to open maps:", err);
+        });
+      });
+    } else {
+      // Android - use Google Maps
+      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+      Linking.openURL(googleMapsUrl).catch((err) => {
+        console.error("Failed to open Google Maps:", err);
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.content}>
@@ -186,7 +211,17 @@ export default function EventsPage() {
                   <View style={styles.eventDetails}>
                     <View style={styles.detailRow}>
                       <MapPin size={16} color={colors.icon.muted} />
-                      <Text style={styles.detailText}>{event.location}</Text>
+                      <Text style={styles.detailText} numberOfLines={2}>{event.location}</Text>
+                      <Pressable
+                        onPress={() => openAddressInMaps(event.location)}
+                        style={({ pressed }) => [
+                          styles.shareButton,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Navigation size={16} color={colors.secondary} />
+                      </Pressable>
                     </View>
                     {event.created_at && (
                       <View style={styles.detailRow}>
@@ -335,6 +370,11 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
     color: colors.mutedForeground,
+    flex: 1,
+  },
+  shareButton: {
+    padding: 4,
+    marginLeft: 4,
   },
   participantsContainer: {
     flexDirection: 'row',
