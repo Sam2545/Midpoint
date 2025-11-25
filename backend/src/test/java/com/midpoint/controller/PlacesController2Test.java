@@ -55,7 +55,7 @@ class PlacesController2Test {
         
         List<PlacePrediction> predictions = Arrays.asList(prediction);
         
-        when(googleMapsService.getPlaceAutocomplete("Test", anyString()))
+        when(googleMapsService.getPlaceAutocomplete(eq("Test"), anyString()))
             .thenReturn(Mono.just(predictions));
         
         webTestClient.get()
@@ -89,7 +89,7 @@ class PlacesController2Test {
 
     @Test
     void testGetPlaceAutocomplete_Error() {
-        when(googleMapsService.getPlaceAutocomplete("Test", anyString()))
+        when(googleMapsService.getPlaceAutocomplete(eq("Test"), anyString()))
             .thenReturn(Mono.error(new RuntimeException("Service error")));
         
         webTestClient.get()
@@ -112,7 +112,7 @@ class PlacesController2Test {
         geometry.setLocation(location);
         details.setGeometry(geometry);
         
-        when(googleMapsService.getPlaceDetails("test-place-id", anyString()))
+        when(googleMapsService.getPlaceDetails(eq("test-place-id"), anyString()))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()
@@ -145,7 +145,7 @@ class PlacesController2Test {
 
     @Test
     void testGetPlaceDetails_Error() {
-        when(googleMapsService.getPlaceDetails("test-place-id", anyString()))
+        when(googleMapsService.getPlaceDetails(eq("test-place-id"), anyString()))
             .thenReturn(Mono.error(new RuntimeException("Service error")));
         
         webTestClient.get()
@@ -349,7 +349,7 @@ class PlacesController2Test {
     void testGetPlaceAutocomplete_EmptyInput() {
         List<PlacePrediction> predictions = Collections.emptyList();
         
-        when(googleMapsService.getPlaceAutocomplete("", anyString()))
+        when(googleMapsService.getPlaceAutocomplete(eq(""), anyString()))
             .thenReturn(Mono.just(predictions));
         
         webTestClient.get()
@@ -364,7 +364,7 @@ class PlacesController2Test {
     void testGetPlaceDetails_EmptyPlaceId() {
         PlaceDetails details = new PlaceDetails();
         
-        when(googleMapsService.getPlaceDetails("", anyString()))
+        when(googleMapsService.getPlaceDetails(eq(""), anyString()))
             .thenReturn(Mono.just(details));
         
         webTestClient.get()
