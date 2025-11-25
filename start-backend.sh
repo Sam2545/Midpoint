@@ -104,4 +104,3 @@ echo "   Backend will run on http://localhost:8080"
 echo ""
 
 $START_CMD
-

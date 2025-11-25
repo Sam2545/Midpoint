@@ -57,4 +57,3 @@ else
     echo "   Terminal 2: ./start-dev.sh"
     exit 1
 fi
-

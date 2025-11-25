@@ -169,4 +169,3 @@ echo "   ./start-backend.sh"
 echo ""
 
 npx expo start
-
