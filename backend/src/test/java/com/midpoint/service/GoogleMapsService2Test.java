@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings({"unchecked", "rawtypes"})
-class GoogleMapsServiceTest2 {
+class GoogleMapsService2Test {
 
     @Mock
     private WebClient webClient;
