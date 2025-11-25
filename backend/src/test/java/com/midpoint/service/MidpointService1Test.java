@@ -1,6 +1,5 @@
 package com.midpoint.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.midpoint.dto.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +22,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class MidpointServiceTest1 {
+class MidpointService1Test {
 
     @Mock
     private WebClient webClient;
@@ -171,7 +170,7 @@ class MidpointServiceTest1 {
     }
 
     @Test
-    void testReverseGeocode_Success() throws Exception {
+    void testReverseGeocode_Success() {
         Coordinates coordinates = new Coordinates(40.7128, -74.0060);
         String mockResponse = "{\"status\":\"OK\",\"results\":[{\"formatted_address\":\"New York, NY, USA\"}]}";
         

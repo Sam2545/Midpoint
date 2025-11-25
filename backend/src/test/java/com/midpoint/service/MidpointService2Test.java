@@ -26,7 +26,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class MidpointServiceTest2 {
+class MidpointService2Test {
 
     @Mock
     private WebClient webClient;
