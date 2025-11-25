@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
         org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration.class
     }
 )
-class PlacesControllerTest1 {
+class PlacesController1Test {
 
     @Autowired
     private WebTestClient webTestClient;
