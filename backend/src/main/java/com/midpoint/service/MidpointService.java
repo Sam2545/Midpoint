@@ -32,7 +32,7 @@ public class MidpointService {
     @Value("${google.maps.api.key}")
     private String apiKey;
     
-    private static final String PLACES_NEARby_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+    private static final String PLACES_NEARBY_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
     private static final String GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
     private static final String DISTANCE_MATRIX_URL = "https://maps.googleapis.com/maps/api/distancematrix/json";
     private static final String PLACE_PHOTO_URL = "https://maps.googleapis.com/maps/api/place/photo";
@@ -220,7 +220,7 @@ public class MidpointService {
             String.join("|", types);
 
         String url = String.format("%s?location=%s,%s&radius=%d&type=%s&key=%s",
-                PLACES_NEARby_SEARCH_URL, coordinates.getLat(), coordinates.getLng(), 
+                PLACES_NEARBY_SEARCH_URL, coordinates.getLat(), coordinates.getLng(), 
                 radiusMeters, typeFilter, apiKey);
 
         return webClient.get()
