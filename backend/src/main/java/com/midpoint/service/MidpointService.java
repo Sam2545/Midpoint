@@ -460,20 +460,28 @@ public class MidpointService {
         
         int durationSeconds = 0;
         String durationText = "";
-        if (element.has(DURATION_KEY)) {
+        boolean hasDuration = element.has(DURATION_KEY);
+        if (hasDuration) {
             durationSeconds = element.get(DURATION_KEY).get("value").asInt();
             durationText = element.get(DURATION_KEY).get("text").asText();
             summary.setDurationSeconds(durationSeconds);
             summary.setDurationText(durationText);
         }
 
-        double durationMinutes = durationSeconds / 60.0;
-        LOGGER.info("{}{} → ✅ {} ({} min), {}",
-                ORIGIN_LABEL,
-                originIndex,
-                durationText,
-                String.format("%.1f", durationMinutes),
-                distanceText);
+        if (hasDuration) {
+            double durationMinutes = durationSeconds / 60.0;
+            LOGGER.info("{}{} → ✅ {} ({} min), {}",
+                    ORIGIN_LABEL,
+                    originIndex,
+                    durationText,
+                    String.format("%.1f", durationMinutes),
+                    distanceText);
+        } else {
+            LOGGER.info("{}{} → ✅ (no duration), {}",
+                    ORIGIN_LABEL,
+                    originIndex,
+                    distanceText);
+        }
 
         return summary;
     }
