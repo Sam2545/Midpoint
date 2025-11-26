@@ -21,6 +21,7 @@ public class MidpointService {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(MidpointService.class);
     private static final String ORIGIN_LABEL = "    Origin ";
+    private static final String STATUS_KEY = "status";
     
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -186,7 +187,7 @@ public class MidpointService {
                 .map(response -> {
                     try {
                         JsonNode root = objectMapper.readTree(response);
-                        if ("OK".equals(root.get("status").asText()) && 
+                        if ("OK".equals(root.get(STATUS_KEY).asText()) && 
                             root.has("results") && root.get("results").isArray() && 
                             root.get("results").size() > 0) {
                             return root.get("results").get(0).get("formatted_address").asText();
@@ -226,8 +227,8 @@ public class MidpointService {
                 .map(response -> {
                     try {
                         JsonNode root = objectMapper.readTree(response);
-                        if (!"OK".equals(root.get("status").asText())) {
-                            throw new PlacesApiException(root.get("status").asText());
+                        if (!"OK".equals(root.get(STATUS_KEY).asText())) {
+                            throw new PlacesApiException(root.get(STATUS_KEY).asText());
                         }
 
                         List<Place> places = new ArrayList<>();
@@ -356,7 +357,7 @@ public class MidpointService {
                 .map(response -> {
                     try {
                         JsonNode root = objectMapper.readTree(response);
-                        String apiStatus = root.has("status") ? root.get("status").asText() : "UNKNOWN";
+                        String apiStatus = root.has(STATUS_KEY) ? root.get(STATUS_KEY).asText() : "UNKNOWN";
                         LOGGER.info("  📊 API Response Status: {}", apiStatus);
                         
                         if (!"OK".equals(apiStatus) || !root.has("rows")) {
@@ -380,7 +381,7 @@ public class MidpointService {
                                 JsonNode elements = row.get("elements");
                                 JsonNode element = elements.get(i);
 
-                                String status = element.get("status").asText();
+                                String status = element.get(STATUS_KEY).asText();
                                 if (!"OK".equals(status)) {
                                     LOGGER.warn("{}{} → ❌ Status: {}", ORIGIN_LABEL, j, status);
                                     travelSummaries.add(new Place.TravelSummary(j, null, null, null, null, mode));
