@@ -470,12 +470,14 @@ public class MidpointService {
 
         if (hasDuration) {
             double durationMinutes = durationSeconds / 60.0;
-            LOGGER.info("{}{} → ✅ {} ({} min), {}",
-                    ORIGIN_LABEL,
-                    originIndex,
-                    durationText,
-                    String.format("%.1f", durationMinutes),
-                    distanceText);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("{}{} → ✅ {} ({} min), {}",
+                        ORIGIN_LABEL,
+                        originIndex,
+                        durationText,
+                        String.format("%.1f", durationMinutes),
+                        distanceText);
+            }
         } else {
             LOGGER.info("{}{} → ✅ (no duration), {}",
                     ORIGIN_LABEL,
