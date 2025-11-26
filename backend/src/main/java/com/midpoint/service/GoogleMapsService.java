@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.midpoint.dto.PlaceDetails;
 import com.midpoint.dto.PlacePrediction;
 import com.midpoint.exception.PlacesResponseParsingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -16,6 +18,8 @@ import java.util.List;
 
 @Service
 public class GoogleMapsService {
+    
+    private static final Logger LOGGER = LoggerFactory.getLogger(GoogleMapsService.class);
     
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -43,7 +47,7 @@ public class GoogleMapsService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::parseAutocompleteResponse)
-                .doOnError(error -> System.err.println("Autocomplete error: " + error.getMessage()))
+                .doOnError(error -> LOGGER.error("Autocomplete error: " + error.getMessage()))
                 .onErrorReturn(new ArrayList<>());
     }
 
@@ -125,7 +129,7 @@ public class GoogleMapsService {
             if (result.has("formatted_phone_number")) {
                 placeDetails.setFormattedPhoneNumber(result.get("formatted_phone_number").asText());
             }
-            if (result.has("website")) {
+        if (result.has("website")) {
                 placeDetails.setWebsite(result.get("website").asText());
             }
             if (result.has("rating")) {
