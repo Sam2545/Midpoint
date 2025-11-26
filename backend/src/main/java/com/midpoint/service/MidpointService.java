@@ -23,6 +23,8 @@ public class MidpointService {
     private static final String ORIGIN_LABEL = "    Origin ";
     private static final String STATUS_KEY = "status";
     private static final String RESULTS_KEY = "results";
+    private static final String DISTANCE_KEY = "distance";
+    private static final String DURATION_KEY = "duration";
     
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -396,15 +398,15 @@ public class MidpointService {
                                     int durationSeconds = 0;
                                     String durationText = "";
 
-                                    if (element.has("distance")) {
-                                        distanceMeters = element.get("distance").get("value").asInt();
-                                        distanceText = element.get("distance").get("text").asText();
+                                    if (element.has(DISTANCE_KEY)) {
+                                        distanceMeters = element.get(DISTANCE_KEY).get("value").asInt();
+                                        distanceText = element.get(DISTANCE_KEY).get("text").asText();
                                         summary.setDistanceMeters(distanceMeters);
                                         summary.setDistanceText(distanceText);
                                     }
-                                    if (element.has("duration")) {
-                                        durationSeconds = element.get("duration").get("value").asInt();
-                                        durationText = element.get("duration").get("text").asText();
+                                    if (element.has(DURATION_KEY)) {
+                                        durationSeconds = element.get(DURATION_KEY).get("value").asInt();
+                                        durationText = element.get(DURATION_KEY).get("text").asText();
                                         summary.setDurationSeconds(durationSeconds);
                                         summary.setDurationText(durationText);
                                     }
