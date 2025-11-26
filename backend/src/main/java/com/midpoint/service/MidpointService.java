@@ -399,54 +399,8 @@ public class MidpointService {
 
                         for (int i = 0; i < places.size(); i++) {
                             Place place = places.get(i);
-                            List<Place.TravelSummary> travelSummaries = new ArrayList<>();
-
-                            LOGGER.info("  📍 Place: {}", place.getName());
-                            
-                            for (int j = 0; j < origins.size(); j++) {
-                                JsonNode row = rows.get(j);
-                                JsonNode elements = row.get("elements");
-                                JsonNode element = elements.get(i);
-
-                                String status = element.get(STATUS_KEY).asText();
-                                if (!"OK".equals(status)) {
-                                    LOGGER.warn("{}{} → ❌ Status: {}", ORIGIN_LABEL, j, status);
-                                    travelSummaries.add(new Place.TravelSummary(j, null, null, null, null, mode));
-                                } else {
-                                    Place.TravelSummary summary = new Place.TravelSummary();
-                                    summary.setOriginIndex(j);
-                                    summary.setMode(mode);
-
-                                    int distanceMeters = 0;
-                                    String distanceText = "";
-                                    int durationSeconds = 0;
-                                    String durationText = "";
-
-                                    if (element.has(DISTANCE_KEY)) {
-                                        distanceMeters = element.get(DISTANCE_KEY).get("value").asInt();
-                                        distanceText = element.get(DISTANCE_KEY).get("text").asText();
-                                        summary.setDistanceMeters(distanceMeters);
-                                        summary.setDistanceText(distanceText);
-                                    }
-                                    if (element.has(DURATION_KEY)) {
-                                        durationSeconds = element.get(DURATION_KEY).get("value").asInt();
-                                        durationText = element.get(DURATION_KEY).get("text").asText();
-                                        summary.setDurationSeconds(durationSeconds);
-                                        summary.setDurationText(durationText);
-                                    }
-
-                                    double durationMinutes = durationSeconds / 60.0;
-                                    LOGGER.info("{}{} → ✅ {} ({} min), {}",
-                                            ORIGIN_LABEL,
-                                            j,
-                                            durationText,
-                                            String.format("%.1f", durationMinutes),
-                                            distanceText);
-
-                                    travelSummaries.add(summary);
-                                }
-                            }
-
+                            List<Place.TravelSummary> travelSummaries = processPlaceTravelSummaries(
+                                    place, origins, rows, i, mode);
                             place.setTravelSummaries(travelSummaries);
                             enhanced.add(place);
                         }
@@ -460,6 +414,68 @@ public class MidpointService {
                 })
                 .onErrorReturn(places)
                 .doOnError(error -> LOGGER.error("❌ [ISOCHRONE] Error calling Distance Matrix API", error));
+    }
+
+    /**
+     * Process travel summaries for a single place across all origins
+     */
+    private List<Place.TravelSummary> processPlaceTravelSummaries(
+            Place place, List<Coordinates> origins, JsonNode rows, int placeIndex, String mode) {
+        List<Place.TravelSummary> travelSummaries = new ArrayList<>();
+        LOGGER.info("  📍 Place: {}", place.getName());
+        
+        for (int j = 0; j < origins.size(); j++) {
+            JsonNode row = rows.get(j);
+            JsonNode elements = row.get("elements");
+            JsonNode element = elements.get(placeIndex);
+            
+            Place.TravelSummary summary = parseTravelSummaryFromElement(element, j, mode);
+            travelSummaries.add(summary);
+        }
+        
+        return travelSummaries;
+    }
+
+    /**
+     * Parse a travel summary from a distance matrix element
+     */
+    private Place.TravelSummary parseTravelSummaryFromElement(JsonNode element, int originIndex, String mode) {
+        String status = element.get(STATUS_KEY).asText();
+        if (!"OK".equals(status)) {
+            LOGGER.warn("{}{} → ❌ Status: {}", ORIGIN_LABEL, originIndex, status);
+            return new Place.TravelSummary(originIndex, null, null, null, null, mode);
+        }
+        
+        Place.TravelSummary summary = new Place.TravelSummary();
+        summary.setOriginIndex(originIndex);
+        summary.setMode(mode);
+
+        String distanceText = "";
+        if (element.has(DISTANCE_KEY)) {
+            int distanceMeters = element.get(DISTANCE_KEY).get("value").asInt();
+            distanceText = element.get(DISTANCE_KEY).get("text").asText();
+            summary.setDistanceMeters(distanceMeters);
+            summary.setDistanceText(distanceText);
+        }
+        
+        int durationSeconds = 0;
+        String durationText = "";
+        if (element.has(DURATION_KEY)) {
+            durationSeconds = element.get(DURATION_KEY).get("value").asInt();
+            durationText = element.get(DURATION_KEY).get("text").asText();
+            summary.setDurationSeconds(durationSeconds);
+            summary.setDurationText(durationText);
+        }
+
+        double durationMinutes = durationSeconds / 60.0;
+        LOGGER.info("{}{} → ✅ {} ({} min), {}",
+                ORIGIN_LABEL,
+                originIndex,
+                durationText,
+                String.format("%.1f", durationMinutes),
+                distanceText);
+
+        return summary;
     }
 
     /**
