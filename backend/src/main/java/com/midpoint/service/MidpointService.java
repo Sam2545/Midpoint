@@ -22,6 +22,7 @@ public class MidpointService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MidpointService.class);
     private static final String ORIGIN_LABEL = "    Origin ";
     private static final String STATUS_KEY = "status";
+    private static final String RESULTS_KEY = "results";
     
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -29,7 +30,7 @@ public class MidpointService {
     @Value("${google.maps.api.key}")
     private String apiKey;
     
-    private static final String PLACES_NEARBY_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+    private static final String PLACES_NEARby_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
     private static final String GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
     private static final String DISTANCE_MATRIX_URL = "https://maps.googleapis.com/maps/api/distancematrix/json";
     private static final String PLACE_PHOTO_URL = "https://maps.googleapis.com/maps/api/place/photo";
@@ -188,9 +189,9 @@ public class MidpointService {
                     try {
                         JsonNode root = objectMapper.readTree(response);
                         if ("OK".equals(root.get(STATUS_KEY).asText()) && 
-                            root.has("results") && root.get("results").isArray() && 
-                            root.get("results").size() > 0) {
-                            return root.get("results").get(0).get("formatted_address").asText();
+                            root.has(RESULTS_KEY) && root.get(RESULTS_KEY).isArray() && 
+                            root.get(RESULTS_KEY).size() > 0) {
+                            return root.get(RESULTS_KEY).get(0).get("formatted_address").asText();
                         }
                     } catch (JsonProcessingException e) {
                         LOGGER.error("Error parsing reverse geocoding response", e);
@@ -217,7 +218,7 @@ public class MidpointService {
             String.join("|", types);
 
         String url = String.format("%s?location=%s,%s&radius=%d&type=%s&key=%s",
-                PLACES_NEARBY_SEARCH_URL, coordinates.getLat(), coordinates.getLng(), 
+                PLACES_NEARby_SEARCH_URL, coordinates.getLat(), coordinates.getLng(), 
                 radiusMeters, typeFilter, apiKey);
 
         return webClient.get()
@@ -232,7 +233,7 @@ public class MidpointService {
                         }
 
                         List<Place> places = new ArrayList<>();
-                        JsonNode results = root.get("results");
+                        JsonNode results = root.get(RESULTS_KEY);
                         if (results != null && results.isArray()) {
                             for (JsonNode placeNode : results) {
                                 Place place = new Place();

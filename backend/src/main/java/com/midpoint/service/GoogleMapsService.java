@@ -47,7 +47,7 @@ public class GoogleMapsService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::parseAutocompleteResponse)
-                .doOnError(error -> LOGGER.error("Autocomplete error: " + error.getMessage()))
+                .doOnError(error -> LOGGER.error("Autocomplete error: {}", error.getMessage(), error))
                 .onErrorReturn(new ArrayList<>());
     }
 
