@@ -90,7 +90,7 @@ public class MidpointService {
             Math.sin(lat1) + Math.sin(lat2),
             Math.sqrt((Math.cos(lat1) + bx) * (Math.cos(lat1) + bx) + by * by)
         );
-        double lon3 = lon1 + Math.atan2(By, Math.cos(lat1) + Bx);
+        double lon3 = lon1 + Math.atan2(by, Math.cos(lat1) + bx);
 
         return new Coordinates(Math.toDegrees(lat3), Math.toDegrees(lon3));
     }
