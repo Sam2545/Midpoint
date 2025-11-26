@@ -238,60 +238,7 @@ public class MidpointService {
                         JsonNode results = root.get(RESULTS_KEY);
                         if (results != null && results.isArray()) {
                             for (JsonNode placeNode : results) {
-                                Place place = new Place();
-                                place.setPlaceId(placeNode.get("place_id").asText());
-                                place.setName(placeNode.get("name").asText());
-                                place.setAddress(placeNode.has("vicinity") ? 
-                                    placeNode.get("vicinity").asText() : 
-                                    placeNode.get("formatted_address").asText());
-                                
-                                if (placeNode.has("rating")) {
-                                    place.setRating(placeNode.get("rating").asDouble());
-                                }
-                                if (placeNode.has("user_ratings_total")) {
-                                    place.setUserRatingsTotal(placeNode.get("user_ratings_total").asInt());
-                                }
-                                if (placeNode.has("price_level")) {
-                                    place.setPriceLevel(placeNode.get("price_level").asInt());
-                                }
-
-                                // Parse photos
-                                if (placeNode.has("photos")) {
-                                    List<Place.Photo> photos = new ArrayList<>();
-                                    JsonNode photosNode = placeNode.get("photos");
-                                    for (JsonNode photoNode : photosNode) {
-                                        Place.Photo photo = new Place.Photo();
-                                        photo.setPhotoReference(photoNode.get("photo_reference").asText());
-                                        photo.setHeight(photoNode.get("height").asInt());
-                                        photo.setWidth(photoNode.get("width").asInt());
-                                        photo.setUrl(getPhotoUrl(photo.getPhotoReference(), 400));
-                                        photos.add(photo);
-                                    }
-                                    place.setPhotos(photos);
-                                }
-
-                                // Parse types
-                                if (placeNode.has("types")) {
-                                    JsonNode typesNode = placeNode.get("types");
-                                    String[] typesArray = new String[typesNode.size()];
-                                    for (int i = 0; i < typesNode.size(); i++) {
-                                        typesArray[i] = typesNode.get(i).asText();
-                                    }
-                                    place.setTypes(typesArray);
-                                }
-
-                                // Parse coordinates
-                                JsonNode geometry = placeNode.get("geometry");
-                                if (geometry != null && geometry.has("location")) {
-                                    JsonNode location = geometry.get("location");
-                                    Coordinates placeCoords = new Coordinates(
-                                        location.get("lat").asDouble(),
-                                        location.get("lng").asDouble()
-                                    );
-                                    place.setCoordinates(placeCoords);
-                                    place.setDistance(calculateDistance(coordinates, placeCoords));
-                                }
-
+                                Place place = parsePlaceFromNode(placeNode, coordinates);
                                 places.add(place);
                             }
                         }
@@ -306,6 +253,83 @@ public class MidpointService {
                     }
                 })
                 .onErrorReturn(new ArrayList<>());
+    }
+
+    /**
+     * Parse a Place object from a JsonNode
+     */
+    private Place parsePlaceFromNode(JsonNode placeNode, Coordinates searchCoordinates) {
+        Place place = new Place();
+        place.setPlaceId(placeNode.get("place_id").asText());
+        place.setName(placeNode.get("name").asText());
+        place.setAddress(placeNode.has("vicinity") ? 
+            placeNode.get("vicinity").asText() : 
+            placeNode.get("formatted_address").asText());
+        
+        if (placeNode.has("rating")) {
+            place.setRating(placeNode.get("rating").asDouble());
+        }
+        if (placeNode.has("user_ratings_total")) {
+            place.setUserRatingsTotal(placeNode.get("user_ratings_total").asInt());
+        }
+        if (placeNode.has("price_level")) {
+            place.setPriceLevel(placeNode.get("price_level").asInt());
+        }
+
+        parsePhotos(placeNode, place);
+        parseTypes(placeNode, place);
+        parseCoordinates(placeNode, place, searchCoordinates);
+
+        return place;
+    }
+
+    /**
+     * Parse photos from place node
+     */
+    private void parsePhotos(JsonNode placeNode, Place place) {
+        if (placeNode.has("photos")) {
+            List<Place.Photo> photos = new ArrayList<>();
+            JsonNode photosNode = placeNode.get("photos");
+            for (JsonNode photoNode : photosNode) {
+                Place.Photo photo = new Place.Photo();
+                photo.setPhotoReference(photoNode.get("photo_reference").asText());
+                photo.setHeight(photoNode.get("height").asInt());
+                photo.setWidth(photoNode.get("width").asInt());
+                photo.setUrl(getPhotoUrl(photo.getPhotoReference(), 400));
+                photos.add(photo);
+            }
+            place.setPhotos(photos);
+        }
+    }
+
+    /**
+     * Parse types from place node
+     */
+    private void parseTypes(JsonNode placeNode, Place place) {
+        if (placeNode.has("types")) {
+            JsonNode typesNode = placeNode.get("types");
+            String[] typesArray = new String[typesNode.size()];
+            for (int i = 0; i < typesNode.size(); i++) {
+                typesArray[i] = typesNode.get(i).asText();
+            }
+            place.setTypes(typesArray);
+        }
+    }
+
+    /**
+     * Parse coordinates from place node
+     */
+    private void parseCoordinates(JsonNode placeNode, Place place, Coordinates searchCoordinates) {
+        JsonNode geometry = placeNode.get("geometry");
+        if (geometry != null && geometry.has("location")) {
+            JsonNode location = geometry.get("location");
+            Coordinates placeCoords = new Coordinates(
+                location.get("lat").asDouble(),
+                location.get("lng").asDouble()
+            );
+            place.setCoordinates(placeCoords);
+            place.setDistance(calculateDistance(searchCoordinates, placeCoords));
+        }
     }
 
     /**
