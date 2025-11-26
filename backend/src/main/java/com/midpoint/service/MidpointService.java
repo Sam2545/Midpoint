@@ -83,12 +83,12 @@ public class MidpointService {
 
         double dLon = lon2 - lon1;
 
-        double Bx = Math.cos(lat2) * Math.cos(dLon);
-        double By = Math.cos(lat2) * Math.sin(dLon);
+        double bx = Math.cos(lat2) * Math.cos(dLon);
+        double by = Math.cos(lat2) * Math.sin(dLon);
 
         double lat3 = Math.atan2(
             Math.sin(lat1) + Math.sin(lat2),
-            Math.sqrt((Math.cos(lat1) + Bx) * (Math.cos(lat1) + Bx) + By * By)
+            Math.sqrt((Math.cos(lat1) + bx) * (Math.cos(lat1) + bx) + by * by)
         );
         double lon3 = lon1 + Math.atan2(By, Math.cos(lat1) + Bx);
 
