@@ -74,26 +74,31 @@ export const LocationInputWithAutocomplete: React.FC<
     setShowSuggestions(false);
   };
 
-  const renderSuggestion = ({ item }: { item: PlacePrediction }) => (
-    <Pressable
-      style={styles.suggestionItem}
-      onPress={() => handleSelectSuggestion(item)}
-    >
-      <View style={styles.suggestionContent}>
-        <MapPin size={16} color={colors.icon.muted} />
-        <View style={styles.suggestionText}>
-          <Text style={styles.mainText}>
-            {item.structured_formatting.main_text}
-          </Text>
-          {item.structured_formatting.secondary_text && (
-            <Text style={styles.secondaryText}>
-              {item.structured_formatting.secondary_text}
-            </Text>
-          )}
+  const renderSuggestion = ({ item }: { item: PlacePrediction }) => {
+    // Defensive checks for structured_formatting
+    const mainText =
+      item.structured_formatting?.main_text ||
+      item.description ||
+      "Unknown location";
+    const secondaryText = item.structured_formatting?.secondary_text;
+
+    return (
+      <Pressable
+        style={styles.suggestionItem}
+        onPress={() => handleSelectSuggestion(item)}
+      >
+        <View style={styles.suggestionContent}>
+          <MapPin size={16} color={colors.icon.muted} />
+          <View style={styles.suggestionText}>
+            <Text style={styles.mainText}>{mainText}</Text>
+            {secondaryText && (
+              <Text style={styles.secondaryText}>{secondaryText}</Text>
+            )}
+          </View>
         </View>
-      </View>
-    </Pressable>
-  );
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -104,7 +109,7 @@ export const LocationInputWithAutocomplete: React.FC<
           value={input}
           onChangeText={handleInputChange}
           onFocus={() => setShowSuggestions(input.length >= 2)}
-          autoComplete={autoComplete}
+          autoComplete={autoComplete as any}
           placeholderTextColor={colors.mutedForeground}
         />
         {input.length > 0 && (
@@ -125,9 +130,32 @@ export const LocationInputWithAutocomplete: React.FC<
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
           >
-            {suggestions.map((item) => (
-              <View key={item.place_id}>{renderSuggestion({ item })}</View>
-            ))}
+            {suggestions.map((item, index) => {
+              // Debug logging
+              if (index === 0) {
+                console.log(
+                  "🔍 First suggestion data:",
+                  JSON.stringify(item, null, 2)
+                );
+                console.log("  - place_id:", item.place_id);
+                console.log("  - description:", item.description);
+                console.log(
+                  "  - structured_formatting:",
+                  item.structured_formatting
+                );
+                console.log(
+                  "  - main_text:",
+                  item.structured_formatting?.main_text
+                );
+                console.log(
+                  "  - secondary_text:",
+                  item.structured_formatting?.secondary_text
+                );
+              }
+              return (
+                <View key={item.place_id}>{renderSuggestion({ item })}</View>
+              );
+            })}
           </ScrollView>
         </View>
       )}
@@ -145,7 +173,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colorOpacity.secondary['30'],
+    borderColor: colorOpacity.secondary["30"],
     borderRadius: 8,
     backgroundColor: colors.inputBackground,
     paddingHorizontal: 12,
