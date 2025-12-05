@@ -17,7 +17,7 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,10 +28,16 @@ class GoogleMapsService1Test {
     private WebClient webClient;
 
     @Mock
-    private WebClient.RequestHeadersUriSpec requestHeadersUriSpec;
+    private WebClient.RequestBodyUriSpec requestBodyUriSpec;
+
+    @Mock
+    private WebClient.RequestBodySpec requestBodySpec;
 
     @Mock
     private WebClient.RequestHeadersSpec requestHeadersSpec;
+
+    @Mock
+    private WebClient.RequestHeadersUriSpec requestHeadersUriSpec;
 
     @Mock
     private WebClient.ResponseSpec responseSpec;
@@ -76,8 +82,10 @@ class GoogleMapsService1Test {
             }
             """;
 
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
 
@@ -104,10 +112,13 @@ class GoogleMapsService1Test {
             .verifyComplete();
 
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(requestHeadersUriSpec).uri(urlCaptor.capture());
-        assertTrue(urlCaptor.getValue().contains("input=New%20York"));
-        assertTrue(urlCaptor.getValue().contains("sessiontoken=" + session));
-        assertTrue(urlCaptor.getValue().contains("key=" + apiKey));
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestBodyUriSpec).uri(urlCaptor.capture());
+        verify(requestBodySpec).bodyValue(bodyCaptor.capture());
+        assertEquals("https://places.googleapis.com/v1/places:autocomplete", urlCaptor.getValue());
+        assertTrue(bodyCaptor.getValue().contains("\"input\":\"New York\""));
+        verify(requestBodySpec, atLeastOnce()).header(eq("Content-Type"), anyString());
+        verify(requestBodySpec, atLeastOnce()).header(eq("X-Goog-Api-Key"), eq(apiKey));
     }
 
     @Test
@@ -116,8 +127,10 @@ class GoogleMapsService1Test {
         String session = "sess-123";
         String mockResponse = "{\"predictions\":[],\"status\":\"OK\"}";
 
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
 
@@ -161,8 +174,10 @@ class GoogleMapsService1Test {
             }
             """;
 
-        when(webClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(anyString())).thenReturn(requestHeadersSpec);
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
 
